@@ -1,0 +1,39 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  name: MyString
+  company: MyString
+  address: MyString
+  phone: MyString
+  mobile: MyString
+  email: MyString
+  payment_type: MyString
+  payment_status: MyString
+  waiver_accepted_at: 2025-11-25 17:48:00
+  checked_in_at: 2025-11-25 17:48:00
+  registration_status: MyString
+  group: one
+  hole_number: 1
+  notes: MyText
+  payment_method: MyString
+  receipt_number: MyString
+  payment_notes: MyText
+
+two:
+  name: MyString
+  company: MyString
+  address: MyString
+  phone: MyString
+  mobile: MyString
+  email: MyString
+  payment_type: MyString
+  payment_status: MyString
+  waiver_accepted_at: 2025-11-25 17:48:00
+  checked_in_at: 2025-11-25 17:48:00
+  registration_status: MyString
+  group: two
+  hole_number: 1
+  notes: MyText
+  payment_method: MyString
+  receipt_number: MyString
+  payment_notes: MyText

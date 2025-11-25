@@ -1,0 +1,13 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  max_capacity: 1
+  stripe_public_key: MyString
+  stripe_secret_key: MyString
+  admin_email: MyString
+
+two:
+  max_capacity: 1
+  stripe_public_key: MyString
+  stripe_secret_key: MyString
+  admin_email: MyString

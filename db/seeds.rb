@@ -1,0 +1,75 @@
+# This file should ensure the existence of records required to run the application in every environment (production,
+# development, test). The code here should be idempotent so that it can be executed at any point in every environment.
+# The data can then be loaded with the bin/rails db:seed command (or created alongside the database with db:setup).
+
+puts "Seeding database..."
+
+# Create default settings
+setting = Setting.find_or_create_by!(id: 1) do |s|
+  s.max_capacity = 160
+  s.admin_email = "admin@airportgolf.com"
+end
+puts "Created settings with capacity: #{setting.max_capacity}"
+
+# Create a default super admin (for development/testing)
+admin = Admin.find_or_create_by!(clerk_id: "dev_admin_001") do |a|
+  a.name = "Tournament Admin"
+  a.email = "admin@airportgolf.com"
+  a.role = "super_admin"
+end
+puts "Created super admin: #{admin.email}"
+
+# Only seed sample data in development
+if Rails.env.development?
+  puts "Creating sample golfers for development..."
+
+  # Create some sample golfers
+  sample_golfers = [
+    { name: "John Smith", company: "ABC Corp", email: "john.smith@example.com", phone: "(555) 123-4567", payment_type: "stripe", payment_status: "paid" },
+    { name: "Jane Doe", company: "XYZ Inc", email: "jane.doe@example.com", phone: "(555) 234-5678", payment_type: "pay_on_day", payment_status: "unpaid" },
+    { name: "Bob Johnson", company: "Acme LLC", email: "bob.johnson@example.com", phone: "(555) 345-6789", payment_type: "stripe", payment_status: "paid" },
+    { name: "Alice Williams", company: "Tech Solutions", email: "alice.williams@example.com", phone: "(555) 456-7890", payment_type: "pay_on_day", payment_status: "unpaid" },
+    { name: "Charlie Brown", company: "Golf Pros", email: "charlie.brown@example.com", phone: "(555) 567-8901", payment_type: "stripe", payment_status: "paid" },
+    { name: "Diana Martinez", company: "Airport Services", email: "diana.martinez@example.com", phone: "(555) 678-9012", payment_type: "pay_on_day", payment_status: "unpaid" },
+    { name: "Edward Lee", company: "Pacific Airlines", email: "edward.lee@example.com", phone: "(555) 789-0123", payment_type: "stripe", payment_status: "paid" },
+    { name: "Fiona Garcia", company: "Island Tours", email: "fiona.garcia@example.com", phone: "(555) 890-1234", payment_type: "stripe", payment_status: "unpaid" },
+  ]
+
+  sample_golfers.each do |attrs|
+    golfer = Golfer.find_or_create_by!(email: attrs[:email]) do |g|
+      g.name = attrs[:name]
+      g.company = attrs[:company]
+      g.phone = attrs[:phone]
+      g.payment_type = attrs[:payment_type]
+      g.payment_status = attrs[:payment_status]
+      g.waiver_accepted_at = Time.current
+      g.registration_status = "confirmed"
+      g.address = "123 Main St, City, State 12345"
+    end
+    puts "Created golfer: #{golfer.name}"
+  end
+
+  # Create some groups
+  puts "Creating sample groups..."
+  2.times do |i|
+    group = Group.find_or_create_by!(group_number: i + 1) do |g|
+      g.hole_number = i + 1
+    end
+    puts "Created group #{group.group_number} at hole #{group.hole_number}"
+  end
+
+  # Assign some golfers to groups
+  puts "Assigning golfers to groups..."
+  golfers = Golfer.unassigned.limit(8)
+  groups = Group.all
+
+  golfers.each_with_index do |golfer, index|
+    group = groups[index / 4]
+    if group && !group.full?
+      group.add_golfer(golfer)
+      puts "Added #{golfer.name} to Group #{group.group_number}"
+    end
+  end
+end
+
+puts "Seeding complete!"

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #1a5f2a; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; background: #f9f9f9; }
+    .info { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .success { color: #1a5f2a; }
+    .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Payment Received</h1>
+      <p>Golf Tournament Admin Notification</p>
+    </div>
+
+    <div class="content">
+      <h2 class="success">💰 Payment Confirmed</h2>
+
+      <div class="info">
+        <p><strong>Golfer:</strong> <%= @golfer.name %></p>
+        <p><strong>Email:</strong> <%= @golfer.email %></p>
+        <p><strong>Payment Status:</strong> Paid</p>
+        <p><strong>Payment Method:</strong> <%= @golfer.payment_method || @golfer.payment_type %></p>
+        <% if @golfer.receipt_number.present? %>
+          <p><strong>Receipt #:</strong> <%= @golfer.receipt_number %></p>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>This is an automated notification from the Golf Tournament System.</p>
+    </div>
+  </div>
+</body>
+</html>
+

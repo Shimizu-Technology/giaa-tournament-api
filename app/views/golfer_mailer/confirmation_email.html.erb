@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #1a5f2a; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; background: #f9f9f9; }
+    .status-confirmed { color: #1a5f2a; font-weight: bold; }
+    .status-waitlist { color: #d97706; font-weight: bold; }
+    .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>2026 Airport Week Golf Tournament</h1>
+      <p>Edward A.P. Muna II Memorial</p>
+    </div>
+
+    <div class="content">
+      <h2>Hello <%= @golfer.name %>!</h2>
+
+      <% if @is_confirmed %>
+        <p class="status-confirmed">🎉 Your registration is confirmed!</p>
+        <p>Thank you for registering for the 2026 Airport Week Golf Tournament. Your spot has been secured.</p>
+      <% else %>
+        <p class="status-waitlist">📋 You've been added to the waitlist</p>
+        <p>Thank you for your interest in the 2026 Airport Week Golf Tournament. We've reached capacity, but you're on our waitlist. We'll notify you immediately if a spot opens up!</p>
+      <% end %>
+
+      <h3>Registration Details:</h3>
+      <ul>
+        <li><strong>Name:</strong> <%= @golfer.name %></li>
+        <li><strong>Email:</strong> <%= @golfer.email %></li>
+        <li><strong>Company:</strong> <%= @golfer.company || 'N/A' %></li>
+        <li><strong>Payment Method:</strong> <%= @golfer.payment_type == 'stripe' ? 'Online Payment' : 'Pay on Day of Tournament' %></li>
+        <li><strong>Payment Status:</strong> <%= @golfer.payment_status&.capitalize %></li>
+      </ul>
+
+      <% if @golfer.payment_type == 'pay_on_day' %>
+        <p><strong>Note:</strong> Please remember to bring your payment on the day of the tournament.</p>
+      <% end %>
+
+      <p>If you have any questions, please don't hesitate to contact us.</p>
+    </div>
+
+    <div class="footer">
+      <p>&copy; 2026 Airport Week Golf Tournament</p>
+    </div>
+  </div>
+</body>
+</html>
+
