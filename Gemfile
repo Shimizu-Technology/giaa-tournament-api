@@ -47,6 +47,9 @@ gem "active_model_serializers", "~> 0.10.13"
 # Email service
 gem "resend"
 
+# Stripe payments
+gem "stripe"
+
 # Pagination
 gem "kaminari"
 

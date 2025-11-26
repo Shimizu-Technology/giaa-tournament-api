@@ -25,6 +25,9 @@ module Api
           :max_capacity,
           :stripe_public_key,
           :stripe_secret_key,
+          :stripe_webhook_secret,
+          :tournament_entry_fee,
+          :payment_mode,
           :admin_email
         )
       end

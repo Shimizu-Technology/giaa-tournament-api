@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_25_075417) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_26_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -42,9 +42,12 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_25_075417) do
     t.integer "position"
     t.string "receipt_number"
     t.string "registration_status"
+    t.string "stripe_checkout_session_id"
+    t.string "stripe_payment_intent_id"
     t.datetime "updated_at", null: false
     t.datetime "waiver_accepted_at"
     t.index ["group_id"], name: "index_golfers_on_group_id"
+    t.index ["stripe_checkout_session_id"], name: "index_golfers_on_stripe_checkout_session_id", unique: true, where: "(stripe_checkout_session_id IS NOT NULL)"
   end
 
   create_table "groups", force: :cascade do |t|
@@ -58,8 +61,11 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_25_075417) do
     t.string "admin_email"
     t.datetime "created_at", null: false
     t.integer "max_capacity"
+    t.string "payment_mode", default: "test"
     t.string "stripe_public_key"
     t.string "stripe_secret_key"
+    t.string "stripe_webhook_secret"
+    t.integer "tournament_entry_fee", default: 12500
     t.datetime "updated_at", null: false
   end
 

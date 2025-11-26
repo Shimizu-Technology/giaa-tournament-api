@@ -62,13 +62,10 @@ class Golfer < ApplicationRecord
   def set_default_payment_status
     return if payment_status.present?
     
-    # TODO: Remove this when Stripe is implemented
-    # For now, if they select "Pay Now (Stripe)", treat as paid since there's no actual checkout
-    if payment_type == "stripe"
-      self.payment_status = "paid"
-    else
-      self.payment_status = "unpaid"
-    end
+    # All new registrations start as unpaid
+    # Stripe payments will be marked as paid after successful checkout
+    # Pay on day payments will be marked as paid at check-in
+    self.payment_status = "unpaid"
   end
 
   def send_confirmation_email

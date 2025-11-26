@@ -49,6 +49,10 @@ Rails.application.routes.draw do
       # Checkout
       post "checkout" => "checkout#create"
       post "checkout/confirm" => "checkout#confirm"
+      get "checkout/session/:session_id" => "checkout#session_status"
+
+      # Webhooks
+      post "webhooks/stripe" => "webhooks#stripe"
     end
   end
 end
