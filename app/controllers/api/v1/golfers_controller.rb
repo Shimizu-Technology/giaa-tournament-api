@@ -172,7 +172,7 @@ module Api
       def golfer_params
         params.require(:golfer).permit(
           :name, :company, :address, :phone, :mobile, :email,
-          :payment_type, :notes
+          :payment_type, :payment_status, :notes
         )
       end
 
