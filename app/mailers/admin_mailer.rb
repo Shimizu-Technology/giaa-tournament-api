@@ -4,7 +4,9 @@ class AdminMailer < ApplicationMailer
   # Notify admin of new golfer registration
   def notify_new_golfer(golfer)
     @golfer = golfer
-    admin_email = Setting.first&.admin_email
+    @setting = Setting.instance
+    @entry_fee = @setting.tournament_entry_fee.to_f / 100
+    admin_email = @setting.admin_email
 
     return unless admin_email.present?
 
@@ -17,7 +19,9 @@ class AdminMailer < ApplicationMailer
   # Notify admin of payment received
   def notify_payment_received(golfer)
     @golfer = golfer
-    admin_email = Setting.first&.admin_email
+    @setting = Setting.instance
+    @entry_fee = @setting.tournament_entry_fee.to_f / 100
+    admin_email = @setting.admin_email
 
     return unless admin_email.present?
 

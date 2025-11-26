@@ -148,7 +148,9 @@ module Api
           confirmed_count: Golfer.confirmed.count,
           waitlist_count: Golfer.waitlist.count,
           capacity_remaining: setting.capacity_remaining,
-          at_capacity: setting.at_capacity?
+          at_capacity: setting.at_capacity?,
+          entry_fee_cents: setting.tournament_entry_fee || 12500,
+          entry_fee_dollars: (setting.tournament_entry_fee || 12500) / 100.0
         }
       end
 
@@ -167,7 +169,9 @@ module Api
           unassigned: Golfer.unassigned.count,
           max_capacity: setting.max_capacity,
           capacity_remaining: setting.capacity_remaining,
-          at_capacity: setting.at_capacity?
+          at_capacity: setting.at_capacity?,
+          entry_fee_cents: setting.tournament_entry_fee || 12500,
+          entry_fee_dollars: (setting.tournament_entry_fee || 12500) / 100.0
         }
       end
 

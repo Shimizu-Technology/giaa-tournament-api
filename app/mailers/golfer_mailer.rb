@@ -6,6 +6,8 @@ class GolferMailer < ApplicationMailer
     @golfer = golfer
     @status = golfer.registration_status
     @is_confirmed = @status == "confirmed"
+    @setting = Setting.instance
+    @entry_fee = @setting.tournament_entry_fee.to_f / 100
 
     subject = @is_confirmed ?
       "Your Golf Tournament Registration is Confirmed!" :
@@ -17,6 +19,8 @@ class GolferMailer < ApplicationMailer
   # Send payment confirmation after successful payment
   def payment_confirmation_email(golfer)
     @golfer = golfer
+    @setting = Setting.instance
+    @entry_fee = @setting.tournament_entry_fee.to_f / 100
 
     mail(
       to: golfer.email,
@@ -27,6 +31,8 @@ class GolferMailer < ApplicationMailer
   # Send email when promoted from waitlist to confirmed
   def promotion_email(golfer)
     @golfer = golfer
+    @setting = Setting.instance
+    @entry_fee = @setting.tournament_entry_fee.to_f / 100
 
     mail(
       to: golfer.email,
