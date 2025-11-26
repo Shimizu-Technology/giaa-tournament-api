@@ -7,10 +7,14 @@
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    # Allow requests from localhost during development
-    origins "localhost:3000", "localhost:5173", "localhost:5174", "127.0.0.1:3000", "127.0.0.1:5173", "127.0.0.1:5174",
-            # Add your production frontend URLs here
-            ENV.fetch("FRONTEND_URL", "http://localhost:5173")
+    # Allow requests from localhost during development and production domains
+    origins "localhost:3000", "localhost:5173", "localhost:5174", 
+            "127.0.0.1:3000", "127.0.0.1:5173", "127.0.0.1:5174",
+            # Production frontend URLs (explicitly listed)
+            "https://giaa-tournment.com",
+            "https://www.giaa-tournment.com",
+            # Also allow from FRONTEND_URL env var if set
+            *([ENV["FRONTEND_URL"]].compact)
 
     resource "*",
       headers: :any,
