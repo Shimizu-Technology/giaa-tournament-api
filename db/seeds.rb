@@ -7,13 +7,13 @@ puts "Seeding database..."
 # Create default settings
 setting = Setting.find_or_create_by!(id: 1) do |s|
   s.max_capacity = 160
-  s.admin_email = "admin@airportgolf.com"
+  s.admin_email = "shimizutechnology@gmail.com"
 end
 puts "Created settings with capacity: #{setting.max_capacity}"
 
 # Create initial admin by email (they'll be linked when they first log in via Clerk)
 # IMPORTANT: Change this email to your actual admin email before running in production!
-initial_admin_email = ENV.fetch("INITIAL_ADMIN_EMAIL", "admin@airportgolf.com")
+initial_admin_email = ENV.fetch("INITIAL_ADMIN_EMAIL", "shimizutechnology@gmail.com")
 
 admin = Admin.find_or_create_by!(email: initial_admin_email.downcase) do |a|
   a.name = "Tournament Admin"
