@@ -154,6 +154,7 @@ module Api
 
       # GET /api/v1/golfers/stats
       def stats
+        setting = Setting.instance
         render json: {
           total: Golfer.count,
           confirmed: Golfer.confirmed.count,
@@ -163,7 +164,10 @@ module Api
           checked_in: Golfer.checked_in.count,
           not_checked_in: Golfer.not_checked_in.count,
           assigned_to_groups: Golfer.assigned.count,
-          unassigned: Golfer.unassigned.count
+          unassigned: Golfer.unassigned.count,
+          max_capacity: setting.max_capacity,
+          capacity_remaining: setting.capacity_remaining,
+          at_capacity: setting.at_capacity?
         }
       end
 
