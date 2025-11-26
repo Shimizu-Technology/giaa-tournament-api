@@ -94,8 +94,8 @@
                       <tr>
                         <td style="padding: 15px;">
                           <p style="margin: 0 0 5px 0; color: #718096; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Registered</p>
-                          <p style="margin: 0; color: #2d3748; font-size: 14px; font-weight: 600;"><%= @golfer.created_at.strftime('%b %d, %Y') %></p>
-                          <p style="margin: 5px 0 0 0; color: #718096; font-size: 12px;"><%= @golfer.created_at.strftime('%I:%M %p') %></p>
+                          <p style="margin: 0; color: #2d3748; font-size: 14px; font-weight: 600;"><%= @golfer.created_at.in_time_zone('Guam').strftime('%b %d, %Y') %></p>
+                          <p style="margin: 5px 0 0 0; color: #718096; font-size: 12px;"><%= @golfer.created_at.in_time_zone('Guam').strftime('%I:%M %p') %></p>
                         </td>
                       </tr>
                     </table>
