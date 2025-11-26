@@ -26,9 +26,9 @@ class Golfer < ApplicationRecord
   before_validation :set_registration_status, on: :create
   before_validation :set_default_payment_status, on: :create
 
-  # Callbacks
-  after_create :send_confirmation_email
-  after_create :notify_admin
+  # Callbacks - use after_commit to ensure golfer is persisted before jobs run
+  after_commit :send_confirmation_email, on: :create
+  after_commit :notify_admin, on: :create
 
   def checked_in?
     checked_in_at.present?
@@ -61,7 +61,14 @@ class Golfer < ApplicationRecord
 
   def set_default_payment_status
     return if payment_status.present?
-    self.payment_status = "unpaid"
+    
+    # TODO: Remove this when Stripe is implemented
+    # For now, if they select "Pay Now (Stripe)", treat as paid since there's no actual checkout
+    if payment_type == "stripe"
+      self.payment_status = "paid"
+    else
+      self.payment_status = "unpaid"
+    end
   end
 
   def send_confirmation_email

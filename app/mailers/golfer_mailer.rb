@@ -1,4 +1,6 @@
 class GolferMailer < ApplicationMailer
+  helper PhoneHelper
+
   # Send confirmation email to golfer after registration
   def confirmation_email(golfer)
     @golfer = golfer

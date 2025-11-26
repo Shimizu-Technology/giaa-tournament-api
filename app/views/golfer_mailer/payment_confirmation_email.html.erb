@@ -2,44 +2,93 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: #1a5f2a; color: white; padding: 20px; text-align: center; }
-    .content { padding: 20px; background: #f9f9f9; }
-    .success { color: #1a5f2a; font-weight: bold; }
-    .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>2026 Airport Week Golf Tournament</h1>
-      <p>Edward A.P. Muna II Memorial</p>
-    </div>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f4f4f4;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); padding: 30px 40px; text-align: center;">
+              <h1 style="margin: 0 0 5px 0; color: #ffffff; font-size: 14px; font-weight: normal; letter-spacing: 2px; text-transform: uppercase;">2026 Airport Week</h1>
+              <h2 style="margin: 0 0 5px 0; color: #ffffff; font-size: 11px; font-style: italic; font-weight: normal;">5th Annual</h2>
+              <h3 style="margin: 0 0 8px 0; color: #ffffff; font-size: 24px; font-weight: bold;">EDWARD A.P. MUNA II</h3>
+              <p style="margin: 0; color: #d4a54a; font-size: 14px; font-weight: 600; letter-spacing: 1px;">MEMORIAL GOLF TOURNAMENT</p>
+            </td>
+          </tr>
 
-    <div class="content">
-      <h2>Payment Received!</h2>
+          <!-- Success Banner -->
+          <tr>
+            <td style="padding: 0;">
+              <div style="background-color: #059669; color: white; text-align: center; padding: 15px;">
+                <span style="font-size: 20px;">✅</span>
+                <span style="font-size: 16px; font-weight: bold; margin-left: 8px;">Payment Received!</span>
+              </div>
+            </td>
+          </tr>
 
-      <p class="success">✅ Thank you, <%= @golfer.name %>!</p>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 30px 40px;">
+              <h2 style="margin: 0 0 20px 0; color: #1e3a5f; font-size: 22px;">Thank you, <%= @golfer.name %>!</h2>
+              
+              <p style="margin: 0 0 25px 0; color: #4a5568; font-size: 15px; line-height: 1.6;">
+                We have received your payment for the <strong>5th Annual Edward A.P. Muna II Memorial Golf Tournament</strong>. You're all set!
+              </p>
 
-      <p>We have received your payment for the 2026 Airport Week Golf Tournament.</p>
+              <!-- Payment Confirmation Box -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #d1fae5; border-radius: 8px; margin-bottom: 25px;">
+                <tr>
+                  <td style="padding: 20px; text-align: center;">
+                    <p style="margin: 0 0 5px 0; color: #065f46; font-size: 14px;">Amount Paid</p>
+                    <p style="margin: 0; color: #065f46; font-size: 28px; font-weight: bold;">$125.00</p>
+                  </td>
+                </tr>
+              </table>
 
-      <h3>Details:</h3>
-      <ul>
-        <li><strong>Name:</strong> <%= @golfer.name %></li>
-        <li><strong>Email:</strong> <%= @golfer.email %></li>
-        <li><strong>Status:</strong> <%= @golfer.registration_status&.capitalize %></li>
-        <li><strong>Payment Status:</strong> Paid</li>
-      </ul>
+              <!-- Event Reminder -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border-radius: 8px; margin-bottom: 25px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <h3 style="margin: 0 0 15px 0; color: #1e3a5f; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">See You There!</h3>
+                    <table role="presentation" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="padding: 5px 0; color: #718096; font-size: 14px; width: 100px;">📅 Date:</td>
+                        <td style="padding: 5px 0; color: #2d3748; font-size: 14px; font-weight: 500;">January 9, 2026</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 5px 0; color: #718096; font-size: 14px;">📍 Location:</td>
+                        <td style="padding: 5px 0; color: #2d3748; font-size: 14px; font-weight: 500;">Country Club of the Pacific</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 5px 0; color: #718096; font-size: 14px;">⏰ Check-in:</td>
+                        <td style="padding: 5px 0; color: #2d3748; font-size: 14px; font-weight: 500;">11:00 AM</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
 
-      <p>We look forward to seeing you at the tournament!</p>
-    </div>
+              <p style="margin: 0; color: #4a5568; font-size: 14px; line-height: 1.6;">
+                Questions? Contact <strong>Peter Torres</strong> at <strong>671.689.8677</strong>.
+              </p>
+            </td>
+          </tr>
 
-    <div class="footer">
-      <p>&copy; 2026 Airport Week Golf Tournament</p>
-    </div>
-  </div>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #1e3a5f; padding: 25px 40px; text-align: center;">
+              <p style="margin: 0 0 5px 0; color: #a0aec0; font-size: 12px;">A.B. Won Pat International Airport Authority, Guam</p>
+              <p style="margin: 0; color: #718096; font-size: 11px;">© 2026 Airport Week Golf Tournament</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
-

@@ -1,4 +1,6 @@
 class AdminMailer < ApplicationMailer
+  helper PhoneHelper
+
   # Notify admin of new golfer registration
   def notify_new_golfer(golfer)
     @golfer = golfer
