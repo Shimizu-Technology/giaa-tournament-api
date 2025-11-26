@@ -23,19 +23,36 @@ module Authenticated
       return
     end
 
-    # Extract Clerk user ID from the token
+    # Extract Clerk user ID and email from the token
     clerk_id = decoded["sub"]
+    email = decoded["email"] || decoded["primary_email_address"]
 
+    # Debug logging
+    Rails.logger.info "=== Admin Auth Debug ==="
+    Rails.logger.info "Clerk ID: #{clerk_id}"
+    Rails.logger.info "Email from token: #{email.inspect}"
+    Rails.logger.info "All decoded fields: #{decoded.keys.join(', ')}"
+    
     unless clerk_id
       render_unauthorized("Invalid token payload")
       return
     end
 
-    # Find or create admin from Clerk ID
-    @current_admin = Admin.find_or_create_by!(clerk_id: clerk_id) do |admin|
-      admin.email = decoded["email"] || decoded["primary_email_address"]
-      admin.name = decoded["name"] || decoded["first_name"]
-      admin.role = Admin.count.zero? ? "super_admin" : "admin"
+    # Find admin by clerk_id or email (whitelist check)
+    @current_admin = Admin.find_by_clerk_or_email(clerk_id: clerk_id, email: email)
+    Rails.logger.info "Found admin: #{@current_admin.inspect}"
+
+    unless @current_admin
+      render_unauthorized("Access denied. You are not authorized as an admin. Please contact an existing admin to be added.")
+      return
+    end
+
+    # If admin was found by email but doesn't have clerk_id yet, link the account
+    if @current_admin.clerk_id.nil?
+      @current_admin.update!(
+        clerk_id: clerk_id,
+        name: @current_admin.name || decoded["name"] || decoded["first_name"]
+      )
     end
   rescue ActiveRecord::RecordInvalid => e
     render_unauthorized("Failed to authenticate: #{e.message}")

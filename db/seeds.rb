@@ -11,13 +11,16 @@ setting = Setting.find_or_create_by!(id: 1) do |s|
 end
 puts "Created settings with capacity: #{setting.max_capacity}"
 
-# Create a default super admin (for development/testing)
-admin = Admin.find_or_create_by!(clerk_id: "dev_admin_001") do |a|
+# Create initial admin by email (they'll be linked when they first log in via Clerk)
+# IMPORTANT: Change this email to your actual admin email before running in production!
+initial_admin_email = ENV.fetch("INITIAL_ADMIN_EMAIL", "admin@airportgolf.com")
+
+admin = Admin.find_or_create_by!(email: initial_admin_email.downcase) do |a|
   a.name = "Tournament Admin"
-  a.email = "admin@airportgolf.com"
-  a.role = "super_admin"
+  a.role = "admin"
+  # clerk_id will be set automatically when admin first logs in
 end
-puts "Created super admin: #{admin.email}"
+puts "Created initial admin: #{admin.email} (will be linked when they log in via Clerk)"
 
 # Only seed sample data in development
 if Rails.env.development?

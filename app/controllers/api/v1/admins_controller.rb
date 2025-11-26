@@ -1,7 +1,7 @@
 module Api
   module V1
     class AdminsController < BaseController
-      before_action :require_super_admin!, except: [:me]
+      # All admins can manage other admins (no super_admin restriction)
 
       # GET /api/v1/admins
       def index
@@ -21,10 +21,26 @@ module Api
       end
 
       # POST /api/v1/admins
-      # Create a new admin (invite)
+      # Add a new admin by email (they'll be linked when they first log in)
       def create
-        admin = Admin.new(admin_params)
-        admin.role = "admin" # Only super_admin can create admins, but they start as regular admin
+        email = params.dig(:admin, :email)&.downcase&.strip
+
+        if email.blank?
+          render json: { errors: ["Email is required"] }, status: :unprocessable_entity
+          return
+        end
+
+        # Check if admin already exists
+        if Admin.exists?(["LOWER(email) = ?", email])
+          render json: { errors: ["An admin with this email already exists"] }, status: :unprocessable_entity
+          return
+        end
+
+        admin = Admin.new(
+          email: email,
+          name: params.dig(:admin, :name),
+          role: "admin"
+        )
 
         if admin.save
           render json: admin, status: :created
@@ -37,15 +53,7 @@ module Api
       def update
         admin = Admin.find(params[:id])
 
-        # Prevent demoting the last super admin
-        if admin.super_admin? && params[:role] == "admin"
-          if Admin.super_admins.count <= 1
-            render json: { error: "Cannot demote the last super admin" }, status: :unprocessable_entity
-            return
-          end
-        end
-
-        if admin.update(admin_params)
+        if admin.update(admin_update_params)
           render json: admin
         else
           render json: { errors: admin.errors.full_messages }, status: :unprocessable_entity
@@ -56,9 +64,9 @@ module Api
       def destroy
         admin = Admin.find(params[:id])
 
-        # Prevent deleting the last super admin
-        if admin.super_admin? && Admin.super_admins.count <= 1
-          render json: { error: "Cannot delete the last super admin" }, status: :unprocessable_entity
+        # Prevent deleting the last admin
+        if Admin.count <= 1
+          render json: { error: "Cannot delete the last admin" }, status: :unprocessable_entity
           return
         end
 
@@ -74,8 +82,8 @@ module Api
 
       private
 
-      def admin_params
-        params.require(:admin).permit(:clerk_id, :name, :email, :role)
+      def admin_update_params
+        params.require(:admin).permit(:name, :email)
       end
     end
   end
