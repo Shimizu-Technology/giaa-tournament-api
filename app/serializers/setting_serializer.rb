@@ -1,7 +1,7 @@
 class SettingSerializer < ActiveModel::Serializer
   attributes :id, :max_capacity, :stripe_public_key, :stripe_secret_key,
              :stripe_webhook_secret, :tournament_entry_fee, :entry_fee_dollars,
-             :admin_email, :payment_mode, :created_at, :updated_at,
+             :admin_email, :payment_mode, :registration_open, :created_at, :updated_at,
              :capacity_remaining, :at_capacity, :stripe_configured, :test_mode
 
   def capacity_remaining

@@ -59,6 +59,13 @@ module Api
       # POST /api/v1/golfers
       # Public registration endpoint
       def create
+        # Check if registration is open
+        setting = Setting.instance
+        unless setting.registration_open
+          render json: { errors: ["Registration is currently closed."] }, status: :unprocessable_entity
+          return
+        end
+
         golfer = Golfer.new(golfer_params)
         golfer.waiver_accepted_at = Time.current if params[:waiver_accepted]
 
@@ -149,6 +156,7 @@ module Api
           waitlist_count: Golfer.waitlist.count,
           capacity_remaining: setting.capacity_remaining,
           at_capacity: setting.at_capacity?,
+          registration_open: setting.registration_open,
           entry_fee_cents: setting.tournament_entry_fee || 12500,
           entry_fee_dollars: (setting.tournament_entry_fee || 12500) / 100.0
         }

@@ -28,7 +28,8 @@ module Api
           :stripe_webhook_secret,
           :tournament_entry_fee,
           :payment_mode,
-          :admin_email
+          :admin_email,
+          :registration_open
         )
       end
     end
