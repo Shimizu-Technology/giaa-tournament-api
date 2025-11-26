@@ -1,5 +1,6 @@
 require "jwt"
 require "net/http"
+require "openssl"
 
 class ClerkAuth
   class << self
@@ -36,7 +37,22 @@ class ClerkAuth
       # Cache JWKS for 1 hour
       Rails.cache.fetch("clerk_jwks", expires_in: 1.hour) do
         uri = URI(jwks_url)
-        response = Net::HTTP.get_response(uri)
+        
+        http = Net::HTTP.new(uri.host, uri.port)
+        http.use_ssl = true
+        http.open_timeout = 5
+        http.read_timeout = 5
+        
+        # In development, be more lenient with SSL verification
+        # In production, this should use proper CA certificates
+        if Rails.env.development?
+          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+        else
+          http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+        end
+        
+        request = Net::HTTP::Get.new(uri.request_uri)
+        response = http.request(request)
 
         if response.is_a?(Net::HTTPSuccess)
           data = JSON.parse(response.body)
