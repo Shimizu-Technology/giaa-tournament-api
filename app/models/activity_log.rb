@@ -1,0 +1,55 @@
+class ActivityLog < ApplicationRecord
+  belongs_to :admin, optional: true
+
+  # Action types
+  ACTIONS = %w[
+    golfer_created
+    golfer_updated
+    golfer_deleted
+    golfer_checked_in
+    golfer_unchecked
+    payment_marked
+    payment_updated
+    group_created
+    group_updated
+    group_deleted
+    golfer_assigned_to_group
+    golfer_removed_from_group
+    settings_updated
+    admin_created
+    admin_deleted
+  ].freeze
+
+  validates :action, presence: true, inclusion: { in: ACTIONS }
+
+  # Scopes
+  scope :recent, -> { order(created_at: :desc) }
+  scope :by_admin, ->(admin_id) { where(admin_id: admin_id) }
+  scope :by_action, ->(action) { where(action: action) }
+  scope :by_target, ->(type, id) { where(target_type: type, target_id: id) }
+  scope :today, -> { where(created_at: Time.current.beginning_of_day..Time.current.end_of_day) }
+
+  # Helper method to create logs easily
+  def self.log(admin:, action:, target: nil, details: nil, metadata: {})
+    # Include admin identifier in metadata for traceability
+    enriched_metadata = metadata.merge(
+      admin_email: admin&.email,
+      admin_name: admin&.name
+    )
+    
+    create!(
+      admin: admin,
+      action: action,
+      target_type: target&.class&.name,
+      target_id: target&.id,
+      target_name: target.respond_to?(:name) ? target.name : target&.to_s,
+      details: details,
+      metadata: enriched_metadata
+    )
+  end
+  
+  # Get the display name for the admin who performed this action
+  def admin_display_name
+    admin&.name.presence || admin&.email || metadata&.dig('admin_email') || 'System'
+  end
+end

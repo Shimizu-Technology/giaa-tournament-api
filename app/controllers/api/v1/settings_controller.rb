@@ -10,8 +10,25 @@ module Api
       # PATCH /api/v1/settings
       def update
         setting = Setting.instance
+        old_values = setting.attributes.slice(*setting_params.keys.map(&:to_s))
 
         if setting.update(setting_params)
+          # Log the changes
+          changes = setting_params.keys.select { |k| old_values[k.to_s] != setting.send(k) }
+          
+          if changes.any?
+            ActivityLog.log(
+              admin: current_admin,
+              action: 'settings_updated',
+              target: setting,
+              details: "Updated settings: #{changes.join(', ')}",
+              metadata: {
+                changed_fields: changes,
+                previous_values: old_values.slice(*changes.map(&:to_s))
+              }
+            )
+          end
+          
           render json: setting
         else
           render json: { errors: setting.errors.full_messages }, status: :unprocessable_entity

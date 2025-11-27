@@ -43,6 +43,12 @@ module Api
         )
 
         if admin.save
+          ActivityLog.log(
+            admin: current_admin,
+            action: 'admin_created',
+            target: admin,
+            details: "Added new admin: #{admin.email}"
+          )
           render json: admin, status: :created
         else
           render json: { errors: admin.errors.full_messages }, status: :unprocessable_entity
@@ -76,7 +82,17 @@ module Api
           return
         end
 
+        admin_email = admin.email
         admin.destroy
+        
+        ActivityLog.log(
+          admin: current_admin,
+          action: 'admin_deleted',
+          target: nil,
+          details: "Removed admin: #{admin_email}",
+          metadata: { deleted_email: admin_email }
+        )
+        
         head :no_content
       end
 

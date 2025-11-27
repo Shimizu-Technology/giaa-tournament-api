@@ -46,6 +46,14 @@ Rails.application.routes.draw do
       # Settings (singleton resource)
       resource :settings, only: [:show, :update]
 
+      # Activity Logs
+      resources :activity_logs, only: [:index] do
+        collection do
+          get :summary
+          get 'golfer/:golfer_id', action: :golfer_history, as: :golfer_history
+        end
+      end
+
       # Checkout
       post "checkout" => "checkout#create"
       post "checkout/confirm" => "checkout#confirm"

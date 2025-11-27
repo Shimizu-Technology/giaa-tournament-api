@@ -47,12 +47,18 @@ module Authenticated
       return
     end
 
-    # If admin was found by email but doesn't have clerk_id yet, link the account
-    if @current_admin.clerk_id.nil?
-      @current_admin.update!(
-        clerk_id: clerk_id,
-        name: @current_admin.name || decoded["name"] || decoded["first_name"]
-      )
+    # Extract name from Clerk token
+    clerk_name = decoded["name"] || decoded["first_name"] || 
+                 [decoded["first_name"], decoded["last_name"]].compact.join(' ').presence
+
+    # Update admin record if needed
+    updates = {}
+    updates[:clerk_id] = clerk_id if @current_admin.clerk_id.nil?
+    updates[:name] = clerk_name if @current_admin.name.blank? && clerk_name.present?
+    
+    if updates.any?
+      @current_admin.update!(updates)
+      Rails.logger.info "Updated admin: #{updates.inspect}"
     end
   rescue ActiveRecord::RecordInvalid => e
     render_unauthorized("Failed to authenticate: #{e.message}")

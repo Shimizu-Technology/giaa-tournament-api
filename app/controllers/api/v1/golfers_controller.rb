@@ -87,8 +87,11 @@ module Api
       # PATCH /api/v1/golfers/:id
       def update
         golfer = Golfer.find(params[:id])
+        old_values = golfer.attributes.slice('group_id', 'payment_status', 'registration_status')
 
         if golfer.update(golfer_update_params)
+          # Log activity for meaningful changes
+          log_golfer_update(golfer, old_values)
           broadcast_golfer_update(golfer)
           render json: golfer
         else
@@ -99,7 +102,17 @@ module Api
       # DELETE /api/v1/golfers/:id
       def destroy
         golfer = Golfer.find(params[:id])
+        golfer_name = golfer.name
         golfer.destroy
+        
+        ActivityLog.log(
+          admin: current_admin,
+          action: 'golfer_deleted',
+          target: nil,
+          details: "Deleted golfer: #{golfer_name}",
+          metadata: { golfer_name: golfer_name }
+        )
+        
         broadcast_golfer_update(golfer, action: "deleted")
         head :no_content
       end
@@ -107,7 +120,15 @@ module Api
       # POST /api/v1/golfers/:id/check_in
       def check_in
         golfer = Golfer.find(params[:id])
+        was_checked_in = golfer.checked_in_at.present?
         golfer.check_in!
+
+        ActivityLog.log(
+          admin: current_admin,
+          action: was_checked_in ? 'golfer_unchecked' : 'golfer_checked_in',
+          target: golfer,
+          details: was_checked_in ? "Unchecked #{golfer.name}" : "Checked in #{golfer.name}"
+        )
 
         broadcast_golfer_update(golfer)
         render json: golfer
@@ -116,12 +137,25 @@ module Api
       # POST /api/v1/golfers/:id/payment_details
       def payment_details
         golfer = Golfer.find(params[:id])
+        old_status = golfer.payment_status
 
         golfer.update!(
           payment_status: "paid",
           payment_method: params[:payment_method],
           receipt_number: params[:receipt_number],
           payment_notes: params[:payment_notes]
+        )
+
+        ActivityLog.log(
+          admin: current_admin,
+          action: 'payment_marked',
+          target: golfer,
+          details: "Marked #{golfer.name} as paid (#{params[:payment_method]})",
+          metadata: {
+            payment_method: params[:payment_method],
+            receipt_number: params[:receipt_number],
+            previous_status: old_status
+          }
         )
 
         broadcast_golfer_update(golfer)
@@ -140,6 +174,13 @@ module Api
 
         golfer.update!(registration_status: "confirmed")
         GolferMailer.promotion_email(golfer).deliver_later
+
+        ActivityLog.log(
+          admin: current_admin,
+          action: 'golfer_updated',
+          target: golfer,
+          details: "Promoted #{golfer.name} from waitlist to confirmed"
+        )
 
         broadcast_golfer_update(golfer)
         render json: golfer
@@ -225,6 +266,57 @@ module Api
         })
       rescue StandardError => e
         Rails.logger.error("Failed to broadcast golfer update: #{e.message}")
+      end
+
+      def log_golfer_update(golfer, old_values)
+        return unless current_admin
+
+        # Check for group assignment changes
+        if old_values['group_id'] != golfer.group_id
+          if golfer.group_id.present? && old_values['group_id'].nil?
+            ActivityLog.log(
+              admin: current_admin,
+              action: 'golfer_assigned_to_group',
+              target: golfer,
+              details: "Assigned #{golfer.name} to Group #{golfer.group&.group_number}",
+              metadata: { group_id: golfer.group_id, group_number: golfer.group&.group_number }
+            )
+          elsif golfer.group_id.nil? && old_values['group_id'].present?
+            ActivityLog.log(
+              admin: current_admin,
+              action: 'golfer_removed_from_group',
+              target: golfer,
+              details: "Removed #{golfer.name} from group",
+              metadata: { previous_group_id: old_values['group_id'] }
+            )
+          elsif golfer.group_id.present?
+            ActivityLog.log(
+              admin: current_admin,
+              action: 'golfer_assigned_to_group',
+              target: golfer,
+              details: "Moved #{golfer.name} to Group #{golfer.group&.group_number}",
+              metadata: { 
+                group_id: golfer.group_id, 
+                group_number: golfer.group&.group_number,
+                previous_group_id: old_values['group_id']
+              }
+            )
+          end
+        end
+
+        # Check for payment status changes
+        if old_values['payment_status'] != golfer.payment_status
+          ActivityLog.log(
+            admin: current_admin,
+            action: 'payment_updated',
+            target: golfer,
+            details: "Changed #{golfer.name} payment status from #{old_values['payment_status']} to #{golfer.payment_status}",
+            metadata: {
+              previous_status: old_values['payment_status'],
+              new_status: golfer.payment_status
+            }
+          )
+        end
       end
     end
   end

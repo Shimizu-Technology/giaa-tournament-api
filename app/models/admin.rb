@@ -1,4 +1,6 @@
 class Admin < ApplicationRecord
+  has_many :activity_logs, dependent: :nullify
+
   # clerk_id is optional until the admin first logs in
   validates :clerk_id, uniqueness: true, allow_nil: true
   validates :email, presence: true, uniqueness: { case_sensitive: false }

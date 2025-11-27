@@ -10,9 +10,25 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_26_223549) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_27_112804) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "activity_logs", force: :cascade do |t|
+    t.string "action", null: false
+    t.bigint "admin_id"
+    t.datetime "created_at", null: false
+    t.text "details"
+    t.jsonb "metadata", default: {}
+    t.integer "target_id"
+    t.string "target_name"
+    t.string "target_type"
+    t.datetime "updated_at", null: false
+    t.index ["action"], name: "index_activity_logs_on_action"
+    t.index ["admin_id"], name: "index_activity_logs_on_admin_id"
+    t.index ["created_at"], name: "index_activity_logs_on_created_at"
+    t.index ["target_type", "target_id"], name: "index_activity_logs_on_target_type_and_target_id"
+  end
 
   create_table "admins", force: :cascade do |t|
     t.string "clerk_id"
@@ -84,5 +100,6 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_26_223549) do
     t.datetime "updated_at", null: false
   end
 
+  add_foreign_key "activity_logs", "admins"
   add_foreign_key "golfers", "groups"
 end

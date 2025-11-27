@@ -21,6 +21,13 @@ module Api
         group = Group.new(group_number: next_number, hole_number: params[:hole_number])
 
         if group.save
+          ActivityLog.log(
+            admin: current_admin,
+            action: 'group_created',
+            target: group,
+            details: "Created Group #{group.group_number}",
+            metadata: { hole_number: group.hole_number }
+          )
           broadcast_groups_update
           render json: group, status: :created
         else
@@ -31,8 +38,18 @@ module Api
       # PATCH /api/v1/groups/:id
       def update
         group = Group.find(params[:id])
+        old_hole = group.hole_number
 
         if group.update(group_params)
+          if old_hole != group.hole_number
+            ActivityLog.log(
+              admin: current_admin,
+              action: 'group_updated',
+              target: group,
+              details: "Changed Group #{group.group_number} hole from #{old_hole || 'unassigned'} to #{group.hole_number}",
+              metadata: { previous_hole: old_hole, new_hole: group.hole_number }
+            )
+          end
           broadcast_groups_update
           render json: group, include: "golfers"
         else
@@ -43,11 +60,22 @@ module Api
       # DELETE /api/v1/groups/:id
       def destroy
         group = Group.find(params[:id])
+        group_number = group.group_number
+        golfer_names = group.golfers.pluck(:name)
 
         # Remove all golfers from the group first
         group.golfers.update_all(group_id: nil, position: nil)
 
         group.destroy
+        
+        ActivityLog.log(
+          admin: current_admin,
+          action: 'group_deleted',
+          target: nil,
+          details: "Deleted Group #{group_number}",
+          metadata: { group_number: group_number, removed_golfers: golfer_names }
+        )
+        
         broadcast_groups_update
         head :no_content
       end
@@ -55,6 +83,7 @@ module Api
       # POST /api/v1/groups/:id/set_hole
       def set_hole
         group = Group.find(params[:id])
+        old_hole = group.hole_number
 
         unless (1..18).include?(params[:hole_number].to_i)
           render json: { error: "Hole number must be between 1 and 18" }, status: :unprocessable_entity
@@ -62,6 +91,13 @@ module Api
         end
 
         if group.update(hole_number: params[:hole_number])
+          ActivityLog.log(
+            admin: current_admin,
+            action: 'group_updated',
+            target: group,
+            details: "Assigned Group #{group.group_number} to Hole #{group.hole_number}",
+            metadata: { previous_hole: old_hole, new_hole: group.hole_number }
+          )
           broadcast_groups_update
           render json: group, include: "golfers"
         else
@@ -80,6 +116,13 @@ module Api
         end
 
         if group.add_golfer(golfer)
+          ActivityLog.log(
+            admin: current_admin,
+            action: 'golfer_assigned_to_group',
+            target: golfer,
+            details: "Added #{golfer.name} to Group #{group.group_number}",
+            metadata: { group_id: group.id, group_number: group.group_number }
+          )
           broadcast_groups_update
           render json: group, include: "golfers"
         else
@@ -98,6 +141,15 @@ module Api
         end
 
         group.remove_golfer(golfer)
+        
+        ActivityLog.log(
+          admin: current_admin,
+          action: 'golfer_removed_from_group',
+          target: golfer,
+          details: "Removed #{golfer.name} from Group #{group.group_number}",
+          metadata: { group_id: group.id, group_number: group.group_number }
+        )
+        
         broadcast_groups_update
         render json: group, include: "golfers"
       end
