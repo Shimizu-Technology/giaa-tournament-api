@@ -1,13 +1,18 @@
-# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+# Admin fixtures
+admin_one:
+  clerk_id: "clerk_test_admin_1"
+  name: "Test Admin"
+  email: "admin@test.com"
+  role: "admin"
 
-one:
-  clerk_id: MyString
-  name: MyString
-  email: MyString
-  role: MyString
+admin_two:
+  clerk_id: "clerk_test_admin_2"
+  name: "Super Admin"
+  email: "super@test.com"
+  role: "super_admin"
 
-two:
-  clerk_id: MyString
-  name: MyString
-  email: MyString
-  role: MyString
+admin_no_clerk:
+  clerk_id: ~
+  name: ~
+  email: "pending@test.com"
+  role: "admin"

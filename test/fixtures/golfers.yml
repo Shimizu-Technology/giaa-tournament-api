@@ -1,39 +1,79 @@
-# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
-
-one:
-  name: MyString
-  company: MyString
-  address: MyString
-  phone: MyString
-  mobile: MyString
-  email: MyString
-  payment_type: MyString
-  payment_status: MyString
-  waiver_accepted_at: 2025-11-25 17:48:00
-  checked_in_at: 2025-11-25 17:48:00
-  registration_status: MyString
-  group: one
+# Golfer fixtures
+confirmed_paid:
+  name: "John Confirmed"
+  company: "Test Corp"
+  address: "123 Test St"
+  phone: "671-555-0001"
+  email: "john@test.com"
+  payment_type: "pay_on_day"
+  payment_status: "paid"
+  waiver_accepted_at: <%= Time.current %>
+  checked_in_at: ~
+  registration_status: "confirmed"
+  group: group_one
   hole_number: 1
-  notes: MyText
-  payment_method: MyString
-  receipt_number: MyString
-  payment_notes: MyText
+  position: 1
+  payment_method: "cash"
+  receipt_number: "R001"
 
-two:
-  name: MyString
-  company: MyString
-  address: MyString
-  phone: MyString
-  mobile: MyString
-  email: MyString
-  payment_type: MyString
-  payment_status: MyString
-  waiver_accepted_at: 2025-11-25 17:48:00
-  checked_in_at: 2025-11-25 17:48:00
-  registration_status: MyString
-  group: two
+confirmed_unpaid:
+  name: "Jane Unpaid"
+  company: "Unpaid Inc"
+  address: "456 Test Ave"
+  phone: "671-555-0002"
+  email: "jane@test.com"
+  payment_type: "pay_on_day"
+  payment_status: "unpaid"
+  waiver_accepted_at: <%= Time.current %>
+  checked_in_at: ~
+  registration_status: "confirmed"
+  group: ~
+  hole_number: ~
+  position: ~
+
+confirmed_checked_in:
+  name: "Bob Checked"
+  company: "CheckedIn LLC"
+  address: "789 Test Blvd"
+  phone: "671-555-0003"
+  email: "bob@test.com"
+  payment_type: "pay_on_day"
+  payment_status: "paid"
+  waiver_accepted_at: <%= Time.current %>
+  checked_in_at: <%= Time.current %>
+  registration_status: "confirmed"
+  group: group_one
   hole_number: 1
-  notes: MyText
-  payment_method: MyString
-  receipt_number: MyString
-  payment_notes: MyText
+  position: 2
+  payment_method: "credit"
+  receipt_number: "R002"
+
+waitlist_golfer:
+  name: "Wally Waitlist"
+  company: "Waiting Corp"
+  address: "101 Wait St"
+  phone: "671-555-0004"
+  email: "wally@test.com"
+  payment_type: "pay_on_day"
+  payment_status: "unpaid"
+  waiver_accepted_at: <%= Time.current %>
+  checked_in_at: ~
+  registration_status: "waitlist"
+  group: ~
+  hole_number: ~
+  position: ~
+
+stripe_golfer:
+  name: "Sally Stripe"
+  company: "Stripe Inc"
+  address: "202 Pay St"
+  phone: "671-555-0005"
+  email: "sally@test.com"
+  payment_type: "stripe"
+  payment_status: "paid"
+  waiver_accepted_at: <%= Time.current %>
+  checked_in_at: ~
+  registration_status: "confirmed"
+  group: group_two
+  hole_number: 5
+  position: 1

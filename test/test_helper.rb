@@ -13,3 +13,27 @@ module ActiveSupport
     # Add more helper methods to be used by all tests here...
   end
 end
+
+module ActionDispatch
+  class IntegrationTest
+    # Set up test admin for authentication
+    def setup
+      super
+      @current_test_admin = nil
+    end
+
+    # Helper to authenticate as an admin for controller tests
+    def authenticate_as(admin)
+      @current_test_admin = admin
+    end
+
+    def auth_headers
+      # Return headers with test token that ClerkAuth will recognize
+      if @current_test_admin
+        { "Authorization" => "Bearer test_token_#{@current_test_admin.id}" }
+      else
+        {}
+      end
+    end
+  end
+end

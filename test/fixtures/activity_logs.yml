@@ -1,19 +1,24 @@
-# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
-
-one:
-  admin: one
-  action: MyString
-  target_type: MyString
+# ActivityLog fixtures
+check_in_log:
+  admin: admin_one
+  action: "golfer_checked_in"
+  target_type: "Golfer"
   target_id: 1
-  target_name: MyString
-  details: MyText
-  metadata: 
+  target_name: "Bob Checked"
+  details: "Checked in Bob Checked"
 
-two:
-  admin: two
-  action: MyString
-  target_type: MyString
+payment_log:
+  admin: admin_one
+  action: "payment_marked"
+  target_type: "Golfer"
   target_id: 1
-  target_name: MyString
-  details: MyText
-  metadata: 
+  target_name: "John Confirmed"
+  details: "Marked John Confirmed as paid (cash)"
+
+group_assign_log:
+  admin: admin_two
+  action: "golfer_assigned_to_group"
+  target_type: "Golfer"
+  target_id: 1
+  target_name: "John Confirmed"
+  details: "Assigned John Confirmed to Group 1"
