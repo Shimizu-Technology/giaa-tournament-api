@@ -15,6 +15,8 @@ Rails.application.routes.draw do
           post :check_in
           post :payment_details
           post :promote
+          post :demote
+          post :update_payment_status
         end
         collection do
           get :registration_status

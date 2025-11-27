@@ -35,7 +35,12 @@ class Golfer < ApplicationRecord
   end
 
   def check_in!
-    update!(checked_in_at: Time.current)
+    # Toggle check-in status
+    if checked_in?
+      update!(checked_in_at: nil)
+    else
+      update!(checked_in_at: Time.current)
+    end
   end
 
   def group_position_label

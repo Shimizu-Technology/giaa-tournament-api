@@ -186,6 +186,67 @@ module Api
         render json: golfer
       end
 
+      # POST /api/v1/golfers/:id/demote
+      # Move a golfer from confirmed to waitlist
+      def demote
+        golfer = Golfer.find(params[:id])
+
+        unless golfer.registration_status == "confirmed"
+          render json: { error: "Golfer is not confirmed" }, status: :unprocessable_entity
+          return
+        end
+
+        golfer.update!(registration_status: "waitlist")
+
+        ActivityLog.log(
+          admin: current_admin,
+          action: 'golfer_updated',
+          target: golfer,
+          details: "Moved #{golfer.name} to waitlist",
+          metadata: { previous_status: 'confirmed', new_status: 'waitlist' }
+        )
+
+        broadcast_golfer_update(golfer)
+        render json: golfer
+      end
+
+      # POST /api/v1/golfers/:id/update_payment_status
+      # Change payment status (paid/unpaid)
+      def update_payment_status
+        golfer = Golfer.find(params[:id])
+        new_status = params[:payment_status]
+
+        unless %w[paid unpaid].include?(new_status)
+          render json: { error: "Invalid payment status. Must be 'paid' or 'unpaid'" }, status: :unprocessable_entity
+          return
+        end
+
+        old_status = golfer.payment_status
+
+        if new_status == 'unpaid'
+          # Clear payment details when marking as unpaid (but keep payment_type)
+          golfer.update!(
+            payment_status: 'unpaid',
+            payment_method: nil,
+            receipt_number: nil,
+            payment_notes: nil
+          )
+        else
+          golfer.update!(payment_status: 'paid')
+        end
+
+        ActivityLog.log(
+          admin: current_admin,
+          action: 'payment_updated',
+          target: golfer,
+          details: "Changed #{golfer.name} payment status from #{old_status} to #{new_status}",
+          metadata: { previous_status: old_status, new_status: new_status }
+        )
+
+        broadcast_golfer_update(golfer)
+        render json: golfer
+      end
+
       # GET /api/v1/golfers/registration_status
       # Public endpoint to check registration capacity
       def registration_status
