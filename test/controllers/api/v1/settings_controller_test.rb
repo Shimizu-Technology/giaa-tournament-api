@@ -12,14 +12,17 @@ class Api::V1::SettingsControllerTest < ActionDispatch::IntegrationTest
   # GET /api/v1/settings
   # ==================
 
-  test "show returns settings" do
+  test "show returns global settings" do
     get api_v1_settings_url, headers: auth_headers
     assert_response :success
     
     json = JSON.parse(response.body)
-    assert json.key?("max_capacity")
-    assert json.key?("registration_open")
-    assert json.key?("tournament_entry_fee")
+    # Global settings should be present
+    assert json.key?("stripe_public_key")
+    assert json.key?("payment_mode")
+    assert json.key?("admin_email")
+    assert json.key?("stripe_configured")
+    assert json.key?("test_mode")
   end
 
   test "show requires authentication" do
@@ -31,60 +34,47 @@ class Api::V1::SettingsControllerTest < ActionDispatch::IntegrationTest
   # PATCH /api/v1/settings
   # ==================
 
-  test "update modifies max_capacity" do
+  test "update modifies payment_mode" do
     patch api_v1_settings_url, params: {
-      setting: { max_capacity: 100 }
+      setting: { payment_mode: "production" }
     }, headers: auth_headers
     
     assert_response :success
     
     setting = Setting.instance
-    assert_equal 100, setting.max_capacity
+    assert_equal "production", setting.payment_mode
   end
 
-  test "update modifies registration_open" do
+  test "update modifies admin_email" do
     patch api_v1_settings_url, params: {
-      setting: { registration_open: false }
+      setting: { admin_email: "new-admin@test.com" }
     }, headers: auth_headers
     
     assert_response :success
     
     setting = Setting.instance
-    assert_equal false, setting.registration_open
+    assert_equal "new-admin@test.com", setting.admin_email
   end
 
-  test "update modifies tournament_entry_fee" do
-    patch api_v1_settings_url, params: {
-      setting: { tournament_entry_fee: 15000 }
-    }, headers: auth_headers
-    
-    assert_response :success
-    
-    setting = Setting.instance
-    assert_equal 15000, setting.tournament_entry_fee
-  end
-
-  test "update modifies tournament details" do
+  test "update modifies stripe keys" do
     patch api_v1_settings_url, params: {
       setting: {
-        tournament_year: "2027",
-        tournament_name: "New Tournament Name",
-        event_date: "January 15, 2027"
+        stripe_public_key: "pk_test_new",
+        stripe_secret_key: "sk_test_new"
       }
     }, headers: auth_headers
     
     assert_response :success
     
     setting = Setting.instance
-    assert_equal "2027", setting.tournament_year
-    assert_equal "New Tournament Name", setting.tournament_name
-    assert_equal "January 15, 2027", setting.event_date
+    assert_equal "pk_test_new", setting.stripe_public_key
+    assert_equal "sk_test_new", setting.stripe_secret_key
   end
 
   test "update logs activity" do
     assert_difference "ActivityLog.count", 1 do
       patch api_v1_settings_url, params: {
-        setting: { max_capacity: 75 }
+        setting: { payment_mode: "production" }
       }, headers: auth_headers
     end
     
@@ -92,4 +82,3 @@ class Api::V1::SettingsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "settings_updated", log.action
   end
 end
-

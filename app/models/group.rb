@@ -1,10 +1,13 @@
 class Group < ApplicationRecord
+  belongs_to :tournament
   has_many :golfers, dependent: :nullify
 
-  validates :group_number, presence: true, uniqueness: true
+  validates :group_number, presence: true, uniqueness: { scope: :tournament_id }
   validates :hole_number, numericality: { only_integer: true, greater_than: 0, less_than_or_equal_to: 18 }, allow_nil: true
+  validates :tournament_id, presence: true
 
   scope :with_golfers, -> { includes(:golfers).order(:group_number) }
+  scope :for_tournament, ->(tournament_id) { where(tournament_id: tournament_id) }
 
   # Maximum golfers per group
   MAX_GOLFERS = 4

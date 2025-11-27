@@ -2,12 +2,14 @@ module Api
   module V1
     class SettingsController < BaseController
       # GET /api/v1/settings
+      # Returns global settings (shared across all tournaments)
       def show
         setting = Setting.instance
-        render json: setting
+        render json: setting, serializer: SettingSerializer
       end
 
       # PATCH /api/v1/settings
+      # Update global settings only
       def update
         setting = Setting.instance
         old_values = setting.attributes.slice(*setting_params.keys.map(&:to_s))
@@ -21,7 +23,7 @@ module Api
               admin: current_admin,
               action: 'settings_updated',
               target: setting,
-              details: "Updated settings: #{changes.join(', ')}",
+              details: "Updated global settings: #{changes.join(', ')}",
               metadata: {
                 changed_fields: changes,
                 previous_values: old_values.slice(*changes.map(&:to_s))
@@ -29,7 +31,7 @@ module Api
             )
           end
           
-          render json: setting
+          render json: setting, serializer: SettingSerializer
         else
           render json: { errors: setting.errors.full_messages }, status: :unprocessable_entity
         end
@@ -38,33 +40,15 @@ module Api
       private
 
       def setting_params
+        # Only global settings - tournament-specific settings are in Tournament model
         params.require(:setting).permit(
-          :max_capacity,
           :stripe_public_key,
           :stripe_secret_key,
           :stripe_webhook_secret,
-          :tournament_entry_fee,
           :payment_mode,
-          :admin_email,
-          :registration_open,
-          # Tournament configuration
-          :tournament_year,
-          :tournament_edition,
-          :tournament_title,
-          :tournament_name,
-          :event_date,
-          :registration_time,
-          :start_time,
-          :location_name,
-          :location_address,
-          :format_name,
-          :fee_includes,
-          :checks_payable_to,
-          :contact_name,
-          :contact_phone
+          :admin_email
         )
       end
     end
   end
 end
-

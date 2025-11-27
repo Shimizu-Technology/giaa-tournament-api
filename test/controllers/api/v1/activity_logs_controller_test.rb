@@ -22,15 +22,18 @@ class Api::V1::ActivityLogsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "index filters by action_type" do
+    tournament = tournaments(:tournament_one)
+    
     # Create a specific log with a unique action for filtering
     ActivityLog.create!(
       admin: @admin,
+      tournament: tournament,
       action: "admin_created",
       details: "Test filter - unique"
     )
     
     # Note: The param is action_type, not action
-    get api_v1_activity_logs_url, params: { action_type: "admin_created" }, headers: auth_headers
+    get api_v1_activity_logs_url, params: { action_type: "admin_created", tournament_id: tournament.id }, headers: auth_headers
     assert_response :success
     
     json = JSON.parse(response.body)

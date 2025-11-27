@@ -3,7 +3,10 @@ module Api
     class GroupsController < BaseController
       # GET /api/v1/groups
       def index
-        groups = Group.with_golfers
+        tournament = find_tournament
+        return render_tournament_required unless tournament
+
+        groups = tournament.groups.with_golfers
 
         render json: groups, each_serializer: GroupSerializer, include: "golfers"
       end
@@ -16,9 +19,12 @@ module Api
 
       # POST /api/v1/groups
       def create
-        # Auto-assign next group number
-        next_number = (Group.maximum(:group_number) || 0) + 1
-        group = Group.new(group_number: next_number, hole_number: params[:hole_number])
+        tournament = find_tournament
+        return render_tournament_required unless tournament
+
+        # Auto-assign next group number for this tournament
+        next_number = (tournament.groups.maximum(:group_number) || 0) + 1
+        group = tournament.groups.new(group_number: next_number, hole_number: params[:hole_number])
 
         if group.save
           ActivityLog.log(
@@ -28,7 +34,7 @@ module Api
             details: "Created Group #{group.group_number}",
             metadata: { hole_number: group.hole_number }
           )
-          broadcast_groups_update
+          broadcast_groups_update(tournament)
           render json: group, status: :created
         else
           render json: { errors: group.errors.full_messages }, status: :unprocessable_entity
@@ -50,7 +56,7 @@ module Api
               metadata: { previous_hole: old_hole, new_hole: group.hole_number }
             )
           end
-          broadcast_groups_update
+          broadcast_groups_update(group.tournament)
           render json: group, include: "golfers"
         else
           render json: { errors: group.errors.full_messages }, status: :unprocessable_entity
@@ -60,6 +66,7 @@ module Api
       # DELETE /api/v1/groups/:id
       def destroy
         group = Group.find(params[:id])
+        tournament = group.tournament
         group_number = group.group_number
         golfer_names = group.golfers.pluck(:name)
 
@@ -72,11 +79,12 @@ module Api
           admin: current_admin,
           action: 'group_deleted',
           target: nil,
+          tournament: tournament,
           details: "Deleted Group #{group_number}",
           metadata: { group_number: group_number, removed_golfers: golfer_names }
         )
         
-        broadcast_groups_update
+        broadcast_groups_update(tournament)
         head :no_content
       end
 
@@ -98,7 +106,7 @@ module Api
             details: "Assigned Group #{group.group_number} to Hole #{group.hole_number}",
             metadata: { previous_hole: old_hole, new_hole: group.hole_number }
           )
-          broadcast_groups_update
+          broadcast_groups_update(group.tournament)
           render json: group, include: "golfers"
         else
           render json: { errors: group.errors.full_messages }, status: :unprocessable_entity
@@ -123,7 +131,7 @@ module Api
             details: "Added #{golfer.name} to Group #{group.group_number}",
             metadata: { group_id: group.id, group_number: group.group_number }
           )
-          broadcast_groups_update
+          broadcast_groups_update(group.tournament)
           render json: group, include: "golfers"
         else
           render json: { error: "Failed to add golfer to group" }, status: :unprocessable_entity
@@ -150,7 +158,7 @@ module Api
           metadata: { group_id: group.id, group_number: group.group_number }
         )
         
-        broadcast_groups_update
+        broadcast_groups_update(group.tournament)
         render json: group, include: "golfers"
       end
 
@@ -158,10 +166,12 @@ module Api
       # For drag-and-drop reordering
       def update_positions
         updates = params[:updates] || []
+        tournament = nil
 
         ActiveRecord::Base.transaction do
           updates.each do |update|
             golfer = Golfer.find(update[:golfer_id])
+            tournament ||= golfer.tournament
 
             golfer.update!(
               group_id: update[:group_id],
@@ -170,7 +180,7 @@ module Api
           end
         end
 
-        broadcast_groups_update
+        broadcast_groups_update(tournament) if tournament
         render json: { message: "Positions updated successfully" }
       rescue ActiveRecord::RecordNotFound => e
         render json: { error: e.message }, status: :not_found
@@ -181,18 +191,21 @@ module Api
       # POST /api/v1/groups/batch_create
       # Create multiple groups at once
       def batch_create
+        tournament = find_tournament
+        return render_tournament_required unless tournament
+
         count = params[:count].to_i
         count = 1 if count < 1
         count = 40 if count > 40 # Max 40 groups (160 golfers / 4)
 
         groups = []
-        next_number = (Group.maximum(:group_number) || 0) + 1
+        next_number = (tournament.groups.maximum(:group_number) || 0) + 1
 
         count.times do |i|
-          groups << Group.create!(group_number: next_number + i)
+          groups << tournament.groups.create!(group_number: next_number + i)
         end
 
-        broadcast_groups_update
+        broadcast_groups_update(tournament)
         render json: groups, status: :created
       rescue ActiveRecord::RecordInvalid => e
         render json: { error: e.message }, status: :unprocessable_entity
@@ -201,7 +214,10 @@ module Api
       # POST /api/v1/groups/auto_assign
       # Automatically assign unassigned golfers to groups
       def auto_assign
-        unassigned = Golfer.confirmed.unassigned.order(:created_at)
+        tournament = find_tournament
+        return render_tournament_required unless tournament
+
+        unassigned = tournament.golfers.confirmed.unassigned.order(:created_at)
 
         if unassigned.empty?
           render json: { message: "No unassigned confirmed golfers" }
@@ -212,20 +228,20 @@ module Api
 
         unassigned.each do |golfer|
           # Find or create a group with space
-          group = Group.includes(:golfers)
+          group = tournament.groups.includes(:golfers)
                        .select { |g| g.golfers.count < Group::MAX_GOLFERS }
                        .first
 
           unless group
-            next_number = (Group.maximum(:group_number) || 0) + 1
-            group = Group.create!(group_number: next_number)
+            next_number = (tournament.groups.maximum(:group_number) || 0) + 1
+            group = tournament.groups.create!(group_number: next_number)
           end
 
           group.add_golfer(golfer)
           assigned_count += 1
         end
 
-        broadcast_groups_update
+        broadcast_groups_update(tournament)
         render json: {
           message: "Auto-assigned #{assigned_count} golfers",
           assigned_count: assigned_count
@@ -234,14 +250,29 @@ module Api
 
       private
 
+      def find_tournament
+        if params[:tournament_id].present?
+          Tournament.find(params[:tournament_id])
+        else
+          Tournament.current
+        end
+      end
+
+      def render_tournament_required
+        render json: { error: "Tournament not found or not specified" }, status: :not_found
+      end
+
       def group_params
         params.require(:group).permit(:group_number, :hole_number)
       end
 
-      def broadcast_groups_update
-        groups = Group.with_golfers
+      def broadcast_groups_update(tournament)
+        return unless tournament
+        
+        groups = tournament.groups.with_golfers
         ActionCable.server.broadcast("groups_channel", {
           action: "updated",
+          tournament_id: tournament.id,
           groups: ActiveModelSerializers::SerializableResource.new(groups, each_serializer: GroupSerializer, include: "golfers").as_json
         })
       rescue StandardError => e
@@ -250,4 +281,3 @@ module Api
     end
   end
 end
-

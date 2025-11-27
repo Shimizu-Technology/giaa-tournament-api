@@ -1,5 +1,6 @@
 class ActivityLog < ApplicationRecord
   belongs_to :admin, optional: true
+  belongs_to :tournament, optional: true
 
   # Action types
   ACTIONS = %w[
@@ -18,6 +19,11 @@ class ActivityLog < ApplicationRecord
     settings_updated
     admin_created
     admin_deleted
+    tournament_created
+    tournament_updated
+    tournament_archived
+    golfer_promoted
+    golfer_demoted
   ].freeze
 
   validates :action, presence: true, inclusion: { in: ACTIONS }
@@ -28,18 +34,23 @@ class ActivityLog < ApplicationRecord
   scope :by_action, ->(action) { where(action: action) }
   scope :by_target, ->(type, id) { where(target_type: type, target_id: id) }
   scope :today, -> { where(created_at: Time.current.beginning_of_day..Time.current.end_of_day) }
+  scope :for_tournament, ->(tournament_id) { where(tournament_id: tournament_id) }
 
   # Helper method to create logs easily
-  def self.log(admin:, action:, target: nil, details: nil, metadata: {})
+  def self.log(admin:, action:, target: nil, details: nil, metadata: {}, tournament: nil)
     # Include admin identifier in metadata for traceability
     enriched_metadata = metadata.merge(
       admin_email: admin&.email,
       admin_name: admin&.name
     )
+
+    # Try to infer tournament from target if not provided
+    inferred_tournament = tournament || (target.respond_to?(:tournament) ? target.tournament : nil)
     
     create!(
       admin: admin,
       action: action,
+      tournament: inferred_tournament,
       target_type: target&.class&.name,
       target_id: target&.id,
       target_name: target.respond_to?(:name) ? target.name : target&.to_s,

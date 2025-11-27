@@ -9,6 +9,19 @@ Rails.application.routes.draw do
   # API routes
   namespace :api do
     namespace :v1 do
+      # Tournaments
+      resources :tournaments do
+        member do
+          post :archive
+          post :copy
+          post :open
+          post :close
+        end
+        collection do
+          get :current
+        end
+      end
+
       # Golfers
       resources :golfers do
         member do

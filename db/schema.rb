@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_27_112804) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_27_142718) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -23,11 +23,13 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_27_112804) do
     t.integer "target_id"
     t.string "target_name"
     t.string "target_type"
+    t.bigint "tournament_id"
     t.datetime "updated_at", null: false
     t.index ["action"], name: "index_activity_logs_on_action"
     t.index ["admin_id"], name: "index_activity_logs_on_admin_id"
     t.index ["created_at"], name: "index_activity_logs_on_created_at"
     t.index ["target_type", "target_id"], name: "index_activity_logs_on_target_type_and_target_id"
+    t.index ["tournament_id"], name: "index_activity_logs_on_tournament_id"
   end
 
   create_table "admins", force: :cascade do |t|
@@ -60,17 +62,22 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_27_112804) do
     t.string "registration_status"
     t.string "stripe_checkout_session_id"
     t.string "stripe_payment_intent_id"
+    t.bigint "tournament_id", null: false
     t.datetime "updated_at", null: false
     t.datetime "waiver_accepted_at"
     t.index ["group_id"], name: "index_golfers_on_group_id"
     t.index ["stripe_checkout_session_id"], name: "index_golfers_on_stripe_checkout_session_id", unique: true, where: "(stripe_checkout_session_id IS NOT NULL)"
+    t.index ["tournament_id", "email"], name: "index_golfers_on_tournament_id_and_email", unique: true
+    t.index ["tournament_id"], name: "index_golfers_on_tournament_id"
   end
 
   create_table "groups", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "group_number"
     t.integer "hole_number"
+    t.bigint "tournament_id", null: false
     t.datetime "updated_at", null: false
+    t.index ["tournament_id"], name: "index_groups_on_tournament_id"
   end
 
   create_table "settings", force: :cascade do |t|
@@ -100,6 +107,34 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_27_112804) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "tournaments", force: :cascade do |t|
+    t.string "checks_payable_to"
+    t.string "contact_name"
+    t.string "contact_phone"
+    t.datetime "created_at", null: false
+    t.string "edition"
+    t.integer "entry_fee", default: 12500
+    t.string "event_date"
+    t.string "fee_includes"
+    t.string "format_name"
+    t.string "location_address"
+    t.string "location_name"
+    t.integer "max_capacity", default: 160
+    t.string "name", null: false
+    t.boolean "registration_open", default: false, null: false
+    t.string "registration_time"
+    t.string "start_time"
+    t.string "status", default: "draft", null: false
+    t.datetime "updated_at", null: false
+    t.integer "year", null: false
+    t.index ["status", "year"], name: "index_tournaments_on_status_and_year"
+    t.index ["status"], name: "index_tournaments_on_status"
+    t.index ["year"], name: "index_tournaments_on_year"
+  end
+
   add_foreign_key "activity_logs", "admins"
+  add_foreign_key "activity_logs", "tournaments"
   add_foreign_key "golfers", "groups"
+  add_foreign_key "golfers", "tournaments"
+  add_foreign_key "groups", "tournaments"
 end

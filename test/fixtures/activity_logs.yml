@@ -1,5 +1,6 @@
 # ActivityLog fixtures
 check_in_log:
+  tournament: tournament_one
   admin: admin_one
   action: "golfer_checked_in"
   target_type: "Golfer"
@@ -8,6 +9,7 @@ check_in_log:
   details: "Checked in Bob Checked"
 
 payment_log:
+  tournament: tournament_one
   admin: admin_one
   action: "payment_marked"
   target_type: "Golfer"
@@ -16,6 +18,7 @@ payment_log:
   details: "Marked John Confirmed as paid (cash)"
 
 group_assign_log:
+  tournament: tournament_one
   admin: admin_two
   action: "golfer_assigned_to_group"
   target_type: "Golfer"

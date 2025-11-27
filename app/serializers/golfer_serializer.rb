@@ -1,5 +1,5 @@
 class GolferSerializer < ActiveModel::Serializer
-  attributes :id, :name, :company, :address, :phone, :mobile, :email,
+  attributes :id, :tournament_id, :name, :company, :address, :phone, :mobile, :email,
              :payment_type, :payment_status, :waiver_accepted_at,
              :checked_in_at, :registration_status, :group_id, :hole_number,
              :position, :notes, :payment_method, :receipt_number, :payment_notes,

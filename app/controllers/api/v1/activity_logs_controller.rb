@@ -3,7 +3,16 @@ module Api
     class ActivityLogsController < BaseController
       # GET /api/v1/activity_logs
       def index
-        logs = ActivityLog.recent.includes(:admin)
+        logs = ActivityLog.recent.includes(:admin, :tournament)
+
+        # Filter by tournament
+        if params[:tournament_id].present?
+          logs = logs.for_tournament(params[:tournament_id])
+        elsif params[:all_tournaments] != 'true'
+          # Default to current tournament
+          tournament = Tournament.current
+          logs = logs.for_tournament(tournament&.id) if tournament
+        end
 
         # Filter by admin
         if params[:admin_id].present?
@@ -66,13 +75,21 @@ module Api
 
       # GET /api/v1/activity_logs/summary
       def summary
-        today_count = ActivityLog.today.count
+        tournament = if params[:tournament_id].present?
+          Tournament.find(params[:tournament_id])
+        else
+          Tournament.current
+        end
+
+        base_scope = tournament ? ActivityLog.for_tournament(tournament.id) : ActivityLog
+
+        today_count = base_scope.today.count
         
         # Activity by action type
-        by_action = ActivityLog.group(:action).count
+        by_action = base_scope.group(:action).count
         
         # Activity by admin (top 10)
-        by_admin = ActivityLog
+        by_admin = base_scope
           .joins(:admin)
           .group('admins.name')
           .order('count_all DESC')
@@ -81,14 +98,16 @@ module Api
 
         # Recent activity (last 7 days by day)
         seven_days_ago = 7.days.ago.beginning_of_day
-        daily_activity = ActivityLog
+        daily_activity = base_scope
           .where('created_at >= ?', seven_days_ago)
           .group("DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Pacific/Guam')")
           .count
 
         render json: {
+          tournament_id: tournament&.id,
+          tournament_name: tournament&.name,
           today_count: today_count,
-          total_count: ActivityLog.count,
+          total_count: base_scope.count,
           by_action: by_action,
           by_admin: by_admin,
           daily_activity: daily_activity
@@ -97,4 +116,3 @@ module Api
     end
   end
 end
-

@@ -1,5 +1,6 @@
 # Golfer fixtures
 confirmed_paid:
+  tournament: tournament_one
   name: "John Confirmed"
   company: "Test Corp"
   address: "123 Test St"
@@ -17,6 +18,7 @@ confirmed_paid:
   receipt_number: "R001"
 
 confirmed_unpaid:
+  tournament: tournament_one
   name: "Jane Unpaid"
   company: "Unpaid Inc"
   address: "456 Test Ave"
@@ -32,6 +34,7 @@ confirmed_unpaid:
   position: ~
 
 confirmed_checked_in:
+  tournament: tournament_one
   name: "Bob Checked"
   company: "CheckedIn LLC"
   address: "789 Test Blvd"
@@ -49,6 +52,7 @@ confirmed_checked_in:
   receipt_number: "R002"
 
 waitlist_golfer:
+  tournament: tournament_one
   name: "Wally Waitlist"
   company: "Waiting Corp"
   address: "101 Wait St"
@@ -64,6 +68,7 @@ waitlist_golfer:
   position: ~
 
 stripe_golfer:
+  tournament: tournament_one
   name: "Sally Stripe"
   company: "Stripe Inc"
   address: "202 Pay St"

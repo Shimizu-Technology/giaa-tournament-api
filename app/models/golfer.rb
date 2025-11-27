@@ -1,14 +1,18 @@
 class Golfer < ApplicationRecord
+  belongs_to :tournament
   belongs_to :group, optional: true
 
   # Validations
   validates :name, presence: true
-  validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
+  validates :email, presence: true, 
+                    uniqueness: { scope: :tournament_id, message: "has already registered for this tournament" },
+                    format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :phone, presence: true
   validates :payment_type, presence: true, inclusion: { in: %w[stripe pay_on_day] }
   validates :payment_status, inclusion: { in: %w[paid unpaid], allow_nil: true }
   validates :registration_status, inclusion: { in: %w[confirmed waitlist], allow_nil: true }
   validates :waiver_accepted_at, presence: true
+  validates :tournament_id, presence: true
 
   # Scopes
   scope :confirmed, -> { where(registration_status: "confirmed") }
@@ -21,6 +25,7 @@ class Golfer < ApplicationRecord
   scope :assigned, -> { where.not(group_id: nil) }
   scope :pay_now, -> { where(payment_type: "stripe") }
   scope :pay_on_day, -> { where(payment_type: "pay_on_day") }
+  scope :for_tournament, ->(tournament_id) { where(tournament_id: tournament_id) }
 
   # Set registration status based on capacity
   before_validation :set_registration_status, on: :create
@@ -53,11 +58,9 @@ class Golfer < ApplicationRecord
 
   def set_registration_status
     return if registration_status.present?
+    return unless tournament
 
-    setting = Setting.first
-    max_capacity = setting&.max_capacity || 160
-
-    if Golfer.confirmed.count >= max_capacity
+    if tournament.at_capacity?
       self.registration_status = "waitlist"
     else
       self.registration_status = "confirmed"

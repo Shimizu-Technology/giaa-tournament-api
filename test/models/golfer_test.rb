@@ -7,13 +7,20 @@ class GolferTest < ActiveSupport::TestCase
   
   test "should be valid with all required attributes" do
     golfer = Golfer.new(
+      tournament: tournaments(:tournament_one),
       name: "Test Golfer",
-      email: "test@example.com",
+      email: "test-new@example.com",
       phone: "671-555-1234",
       payment_type: "pay_on_day",
       waiver_accepted_at: Time.current
     )
-    assert golfer.valid?, "Golfer should be valid with required attributes"
+    assert golfer.valid?, "Golfer should be valid with required attributes: #{golfer.errors.full_messages.join(', ')}"
+  end
+
+  test "should require tournament" do
+    golfer = Golfer.new(tournament: nil)
+    assert_not golfer.valid?
+    assert_includes golfer.errors[:tournament], "must exist"
   end
 
   test "should require name" do
@@ -34,9 +41,10 @@ class GolferTest < ActiveSupport::TestCase
     assert_includes golfer.errors[:email], "is invalid"
   end
 
-  test "should require unique email" do
+  test "should require unique email within tournament" do
     existing = golfers(:confirmed_paid)
     golfer = Golfer.new(
+      tournament: existing.tournament,
       name: "New Golfer",
       email: existing.email,
       phone: "671-555-9999",
@@ -44,7 +52,22 @@ class GolferTest < ActiveSupport::TestCase
       waiver_accepted_at: Time.current
     )
     assert_not golfer.valid?
-    assert_includes golfer.errors[:email], "has already been taken"
+    assert_includes golfer.errors[:email], "has already registered for this tournament"
+  end
+
+  test "should allow same email in different tournaments" do
+    existing = golfers(:confirmed_paid)
+    other_tournament = tournaments(:tournament_archived)
+    
+    golfer = Golfer.new(
+      tournament: other_tournament,
+      name: "Same Person",
+      email: existing.email,
+      phone: "671-555-9999",
+      payment_type: "pay_on_day",
+      waiver_accepted_at: Time.current
+    )
+    assert golfer.valid?, "Same email should be allowed in different tournament: #{golfer.errors.full_messages.join(', ')}"
   end
 
   test "should require phone" do
@@ -115,6 +138,12 @@ class GolferTest < ActiveSupport::TestCase
     assert unassigned.all? { |g| g.group_id.nil? }
   end
 
+  test "for_tournament scope returns golfers for specific tournament" do
+    tournament = tournaments(:tournament_one)
+    golfers = Golfer.for_tournament(tournament.id)
+    assert golfers.all? { |g| g.tournament_id == tournament.id }
+  end
+
   # ==================
   # Instance Methods
   # ==================
@@ -166,9 +195,11 @@ class GolferTest < ActiveSupport::TestCase
   # ==================
 
   test "sets default payment_status to unpaid on create" do
+    tournament = tournaments(:tournament_one)
     golfer = Golfer.create!(
+      tournament: tournament,
       name: "New Golfer",
-      email: "new@example.com",
+      email: "new-callback@example.com",
       phone: "671-555-9999",
       payment_type: "pay_on_day",
       waiver_accepted_at: Time.current
@@ -176,11 +207,13 @@ class GolferTest < ActiveSupport::TestCase
     assert_equal "unpaid", golfer.payment_status
   end
 
-  test "sets registration_status to confirmed when under capacity" do
-    # Ensure we're under capacity
-    Setting.first_or_create!(max_capacity: 100)
+  test "sets registration_status to confirmed when tournament not at capacity" do
+    tournament = tournaments(:tournament_one)
+    # Ensure tournament has capacity
+    tournament.update!(max_capacity: 100)
     
     golfer = Golfer.create!(
+      tournament: tournament,
       name: "New Golfer",
       email: "capacity-test@example.com",
       phone: "671-555-9999",
@@ -193,6 +226,12 @@ class GolferTest < ActiveSupport::TestCase
   # ==================
   # Associations
   # ==================
+
+  test "belongs to tournament" do
+    golfer = golfers(:confirmed_paid)
+    assert_respond_to golfer, :tournament
+    assert_instance_of Tournament, golfer.tournament
+  end
 
   test "belongs to group (optional)" do
     golfer = golfers(:confirmed_paid)

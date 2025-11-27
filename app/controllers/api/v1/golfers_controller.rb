@@ -5,7 +5,10 @@ module Api
 
       # GET /api/v1/golfers
       def index
-        golfers = Golfer.includes(:group)
+        tournament = find_tournament
+        return render_tournament_required unless tournament
+
+        golfers = tournament.golfers.includes(:group)
 
         # Apply filters
         golfers = golfers.where(payment_status: params[:payment_status]) if params[:payment_status].present?
@@ -59,14 +62,20 @@ module Api
       # POST /api/v1/golfers
       # Public registration endpoint
       def create
-        # Check if registration is open
-        setting = Setting.instance
-        unless setting.registration_open
+        # Find the current open tournament
+        tournament = Tournament.current
+        
+        unless tournament
+          render json: { errors: ["No tournament is currently open for registration."] }, status: :unprocessable_entity
+          return
+        end
+
+        unless tournament.can_register?
           render json: { errors: ["Registration is currently closed."] }, status: :unprocessable_entity
           return
         end
 
-        golfer = Golfer.new(golfer_params)
+        golfer = tournament.golfers.new(golfer_params)
         golfer.waiver_accepted_at = Time.current if params[:waiver_accepted]
 
         if golfer.save
@@ -103,12 +112,14 @@ module Api
       def destroy
         golfer = Golfer.find(params[:id])
         golfer_name = golfer.name
+        tournament = golfer.tournament
         golfer.destroy
         
         ActivityLog.log(
           admin: current_admin,
           action: 'golfer_deleted',
           target: nil,
+          tournament: tournament,
           details: "Deleted golfer: #{golfer_name}",
           metadata: { golfer_name: golfer_name }
         )
@@ -177,7 +188,7 @@ module Api
 
         ActivityLog.log(
           admin: current_admin,
-          action: 'golfer_updated',
+          action: 'golfer_promoted',
           target: golfer,
           details: "Promoted #{golfer.name} from waitlist to confirmed"
         )
@@ -200,7 +211,7 @@ module Api
 
         ActivityLog.log(
           admin: current_admin,
-          action: 'golfer_updated',
+          action: 'golfer_demoted',
           target: golfer,
           details: "Moved #{golfer.name} to waitlist",
           metadata: { previous_status: 'confirmed', new_status: 'waitlist' }
@@ -250,59 +261,85 @@ module Api
       # GET /api/v1/golfers/registration_status
       # Public endpoint to check registration capacity
       def registration_status
-        setting = Setting.instance
+        tournament = Tournament.current
+        settings = Setting.instance
 
-        render json: {
-          max_capacity: setting.max_capacity,
-          confirmed_count: Golfer.confirmed.count,
-          waitlist_count: Golfer.waitlist.count,
-          capacity_remaining: setting.capacity_remaining,
-          at_capacity: setting.at_capacity?,
-          registration_open: setting.registration_open,
-          entry_fee_cents: setting.tournament_entry_fee || 12500,
-          entry_fee_dollars: (setting.tournament_entry_fee || 12500) / 100.0,
-          # Tournament configuration for landing page
-          tournament_year: setting.tournament_year,
-          tournament_edition: setting.tournament_edition,
-          tournament_title: setting.tournament_title,
-          tournament_name: setting.tournament_name,
-          event_date: setting.event_date,
-          registration_time: setting.registration_time,
-          start_time: setting.start_time,
-          location_name: setting.location_name,
-          location_address: setting.location_address,
-          format_name: setting.format_name,
-          fee_includes: setting.fee_includes,
-          checks_payable_to: setting.checks_payable_to,
-          contact_name: setting.contact_name,
-          contact_phone: setting.contact_phone
-        }
+        if tournament
+          render json: {
+            tournament_id: tournament.id,
+            max_capacity: tournament.max_capacity,
+            confirmed_count: tournament.confirmed_count,
+            waitlist_count: tournament.waitlist_count,
+            capacity_remaining: tournament.capacity_remaining,
+            at_capacity: tournament.at_capacity?,
+            registration_open: tournament.can_register?,
+            entry_fee_cents: tournament.entry_fee || 12500,
+            entry_fee_dollars: tournament.entry_fee_dollars,
+            # Tournament configuration for landing page
+            tournament_year: tournament.year,
+            tournament_edition: tournament.edition,
+            tournament_title: "AIRPORT WEEK", # Could add to Tournament model if needed
+            tournament_name: tournament.name,
+            event_date: tournament.event_date,
+            registration_time: tournament.registration_time,
+            start_time: tournament.start_time,
+            location_name: tournament.location_name,
+            location_address: tournament.location_address,
+            format_name: tournament.format_name,
+            fee_includes: tournament.fee_includes,
+            checks_payable_to: tournament.checks_payable_to,
+            contact_name: tournament.contact_name,
+            contact_phone: tournament.contact_phone,
+            # Global settings
+            stripe_configured: settings.stripe_configured?,
+            payment_mode: settings.payment_mode
+          }
+        else
+          render json: {
+            registration_open: false,
+            error: "No tournament is currently open"
+          }
+        end
       end
 
       # GET /api/v1/golfers/stats
       def stats
-        setting = Setting.instance
+        tournament = find_tournament
+        return render_tournament_required unless tournament
+
         render json: {
-          total: Golfer.count,
-          confirmed: Golfer.confirmed.count,
-          waitlist: Golfer.waitlist.count,
-          paid: Golfer.paid.count,
-          unpaid: Golfer.unpaid.count,
-          checked_in: Golfer.checked_in.count,
-          not_checked_in: Golfer.not_checked_in.count,
-          assigned_to_groups: Golfer.assigned.count,
-          unassigned: Golfer.unassigned.count,
-          max_capacity: setting.max_capacity,
-          capacity_remaining: setting.capacity_remaining,
-          at_capacity: setting.at_capacity?,
-          entry_fee_cents: setting.tournament_entry_fee || 12500,
-          entry_fee_dollars: (setting.tournament_entry_fee || 12500) / 100.0,
-          # Tournament config
-          tournament_name: setting.tournament_name
+          tournament_id: tournament.id,
+          tournament_name: tournament.name,
+          total: tournament.golfers.count,
+          confirmed: tournament.confirmed_count,
+          waitlist: tournament.waitlist_count,
+          paid: tournament.paid_count,
+          unpaid: tournament.golfers.unpaid.count,
+          checked_in: tournament.checked_in_count,
+          not_checked_in: tournament.golfers.not_checked_in.count,
+          assigned_to_groups: tournament.golfers.assigned.count,
+          unassigned: tournament.golfers.unassigned.count,
+          max_capacity: tournament.max_capacity,
+          capacity_remaining: tournament.capacity_remaining,
+          at_capacity: tournament.at_capacity?,
+          entry_fee_cents: tournament.entry_fee || 12500,
+          entry_fee_dollars: tournament.entry_fee_dollars
         }
       end
 
       private
+
+      def find_tournament
+        if params[:tournament_id].present?
+          Tournament.find(params[:tournament_id])
+        else
+          Tournament.current
+        end
+      end
+
+      def render_tournament_required
+        render json: { error: "Tournament not found or not specified" }, status: :not_found
+      end
 
       def golfer_params
         params.require(:golfer).permit(
@@ -382,4 +419,3 @@ module Api
     end
   end
 end
-
