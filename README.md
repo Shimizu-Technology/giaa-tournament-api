@@ -1,6 +1,6 @@
 # GIAA Tournament API
 
-Rails API backend for the 2026 Airport Week – Edward A.P. Muna II Memorial Golf Tournament Registration System.
+Rails API backend for the Golf Tournament Registration System. Supports multiple tournaments with full registration, check-in, group management, and payment processing.
 
 ## Tech Stack
 
@@ -8,154 +8,154 @@ Rails API backend for the 2026 Airport Week – Edward A.P. Muna II Memorial Gol
 - **PostgreSQL** (database)
 - **Clerk** (authentication via JWT)
 - **Resend** (email delivery)
+- **Stripe** (payment processing)
 - **ActionCable** (WebSocket real-time updates)
 
-## Setup
+## Quick Start
 
 ```bash
-# Install dependencies
+# 1. Install dependencies
 bundle install
 
-# Create and migrate database
+# 2. Setup database
 rails db:create
 rails db:migrate
-
-# Seed development data
 rails db:seed
 
-# Start the server
-rails s -p 3001
+# 3. Start the server
+rails s -p 3000
 ```
 
 ## Environment Variables
 
-Create a `.env` file with:
+Create a `.env` file in the root directory:
 
-```
-# Clerk Authentication
+```env
+# Clerk Authentication (required)
 CLERK_JWKS_URL=https://your-clerk-instance.clerk.accounts.dev/.well-known/jwks.json
 
-# Resend Email
+# Resend Email (required for emails)
 RESEND_API_KEY=re_xxxxxxxxxxxxx
-MAILER_FROM_EMAIL=noreply@airportgolf.com
+MAILER_FROM_EMAIL=noreply@yourdomain.com
 
-# Frontend URL (for CORS)
+# Frontend URL (required for CORS)
 FRONTEND_URL=http://localhost:5173
+
+# Stripe (optional - only needed for real payments)
+# Configure these in Admin Settings instead
 ```
+
+## How It Works
+
+### Multi-Tournament System
+
+The app supports multiple tournaments. Each tournament has its own:
+- Golfers (registrations)
+- Groups (foursomes)
+- Activity logs
+- Settings (capacity, entry fee, dates, etc.)
+
+Tournaments can be:
+- **Draft** - Not yet open for registration
+- **Open** - Accepting registrations
+- **Closed** - Registration closed but not archived
+- **Archived** - Historical, read-only
+
+### Data Flow
+
+1. **Public Registration**: Golfers register via the frontend → Creates golfer record linked to the current open tournament
+2. **Admin Management**: Admins log in via Clerk → JWT verified → Access to manage golfers, groups, check-ins
+3. **Real-time Updates**: Changes broadcast via ActionCable to all connected admin clients
+
+### Key Models
+
+| Model | Description |
+|-------|-------------|
+| `Tournament` | Tournament with settings, dates, capacity |
+| `Golfer` | Registered player (belongs to tournament) |
+| `Group` | Foursome with hole assignment (belongs to tournament) |
+| `Admin` | Whitelisted admin user (linked to Clerk) |
+| `Setting` | Global settings (Stripe keys, payment mode) |
+| `ActivityLog` | Audit trail of admin actions |
 
 ## API Endpoints
 
-### Public Endpoints (No Auth Required)
+### Public (No Auth)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/health` | Health check |
-| GET | `/api/v1/golfers/registration_status` | Get registration capacity status |
+| GET | `/api/v1/tournaments/current` | Get current open tournament |
+| GET | `/api/v1/golfers/registration_status` | Registration capacity & tournament info |
 | POST | `/api/v1/golfers` | Register a new golfer |
 | POST | `/api/v1/checkout` | Create Stripe checkout session |
-| POST | `/api/v1/checkout/confirm` | Confirm payment |
 
-### Protected Endpoints (Clerk JWT Required)
+### Protected (Clerk JWT Required)
+
+#### Tournaments
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/tournaments` | List all tournaments |
+| POST | `/api/v1/tournaments` | Create tournament |
+| PATCH | `/api/v1/tournaments/:id` | Update tournament |
+| POST | `/api/v1/tournaments/:id/archive` | Archive tournament |
+| POST | `/api/v1/tournaments/:id/copy` | Copy for next year |
+| POST | `/api/v1/tournaments/:id/open` | Open registration |
+| POST | `/api/v1/tournaments/:id/close` | Close registration |
 
 #### Golfers
-
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/v1/golfers` | List all golfers (with filters) |
-| GET | `/api/v1/golfers/:id` | Get single golfer |
+| GET | `/api/v1/golfers` | List golfers (filtered by tournament) |
 | PATCH | `/api/v1/golfers/:id` | Update golfer |
 | DELETE | `/api/v1/golfers/:id` | Delete golfer |
-| POST | `/api/v1/golfers/:id/check_in` | Mark golfer as checked in |
-| POST | `/api/v1/golfers/:id/payment_details` | Add payment details (pay-on-day) |
-| POST | `/api/v1/golfers/:id/promote` | Promote from waitlist to confirmed |
-| GET | `/api/v1/golfers/stats` | Get registration statistics |
-
-**Golfer Filters (query params):**
-- `payment_status` - paid/unpaid
-- `payment_type` - stripe/pay_on_day
-- `registration_status` - confirmed/waitlist
-- `checked_in` - true/false
-- `assigned` - true/false
-- `hole_number` - 1-18
-- `group_number` - group number
-- `search` - search by name, email, phone
-- `sort_by` - name, email, created_at, etc.
-- `sort_order` - asc/desc
-- `page` - page number
-- `per_page` - items per page
+| POST | `/api/v1/golfers/:id/check_in` | Toggle check-in |
+| POST | `/api/v1/golfers/:id/payment_details` | Record payment |
+| POST | `/api/v1/golfers/:id/promote` | Promote from waitlist |
 
 #### Groups
-
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/v1/groups` | List all groups with golfers |
-| GET | `/api/v1/groups/:id` | Get single group |
-| POST | `/api/v1/groups` | Create a new group |
-| PATCH | `/api/v1/groups/:id` | Update group |
-| DELETE | `/api/v1/groups/:id` | Delete group |
-| POST | `/api/v1/groups/:id/set_hole` | Assign hole number |
+| GET | `/api/v1/groups` | List groups (filtered by tournament) |
+| POST | `/api/v1/groups` | Create group |
 | POST | `/api/v1/groups/:id/add_golfer` | Add golfer to group |
-| POST | `/api/v1/groups/:id/remove_golfer` | Remove golfer from group |
-| POST | `/api/v1/groups/update_positions` | Drag-and-drop reordering |
-| POST | `/api/v1/groups/batch_create` | Create multiple groups |
+| POST | `/api/v1/groups/:id/remove_golfer` | Remove golfer |
 | POST | `/api/v1/groups/auto_assign` | Auto-assign unassigned golfers |
 
-#### Admins
-
+#### Settings & Admins
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/v1/admins/me` | Get current admin |
-| GET | `/api/v1/admins` | List all admins (super_admin only) |
-| POST | `/api/v1/admins` | Create new admin (super_admin only) |
-| PATCH | `/api/v1/admins/:id` | Update admin (super_admin only) |
-| DELETE | `/api/v1/admins/:id` | Delete admin (super_admin only) |
+| GET | `/api/v1/settings` | Get global settings |
+| PATCH | `/api/v1/settings` | Update settings |
+| GET | `/api/v1/admins` | List admins |
+| POST | `/api/v1/admins` | Add admin by email |
+| DELETE | `/api/v1/admins/:id` | Remove admin |
 
-#### Settings
+## Testing
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/settings` | Get settings |
-| PATCH | `/api/v1/settings` | Update settings (super_admin only) |
+```bash
+# Run all tests
+rails test
 
-## WebSocket Channels
+# Run specific test file
+rails test test/models/golfer_test.rb
 
-Connect to `/cable` for real-time updates:
+# Run with verbose output
+rails test -v
+```
 
-- **GolfersChannel** - Broadcasts golfer updates
-- **GroupsChannel** - Broadcasts group/assignment updates
-
-## Models
-
-### Golfer
-- name, company, address, phone, mobile, email
-- payment_type (stripe/pay_on_day)
-- payment_status (paid/unpaid)
-- registration_status (confirmed/waitlist)
-- waiver_accepted_at, checked_in_at
-- group_id, hole_number, position
-- payment_method, receipt_number, payment_notes
-- notes
-
-### Group
-- group_number (unique)
-- hole_number (1-18)
-- Has many golfers (max 4)
-
-### Admin
-- clerk_id (unique)
-- name, email
-- role (super_admin/admin)
-
-### Setting
-- max_capacity (default: 160)
-- stripe_public_key, stripe_secret_key
-- admin_email
+All 140 tests should pass.
 
 ## Deployment
 
 Deploy to Render with these environment variables:
-- `DATABASE_URL`
-- `RAILS_MASTER_KEY`
-- `CLERK_JWKS_URL`
-- `RESEND_API_KEY`
-- `FRONTEND_URL`
+- `DATABASE_URL` - PostgreSQL connection string
+- `RAILS_MASTER_KEY` - From `config/master.key`
+- `CLERK_JWKS_URL` - Clerk JWKS endpoint
+- `RESEND_API_KEY` - Resend API key
+- `FRONTEND_URL` - Production frontend URL
+
+## WebSocket
+
+Connect to `/cable` for real-time updates:
+- `GolfersChannel` - Golfer create/update/delete
+- `GroupsChannel` - Group and assignment changes
