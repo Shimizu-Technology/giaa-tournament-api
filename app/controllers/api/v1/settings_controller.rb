@@ -29,7 +29,22 @@ module Api
           :tournament_entry_fee,
           :payment_mode,
           :admin_email,
-          :registration_open
+          :registration_open,
+          # Tournament configuration
+          :tournament_year,
+          :tournament_edition,
+          :tournament_title,
+          :tournament_name,
+          :event_date,
+          :registration_time,
+          :start_time,
+          :location_name,
+          :location_address,
+          :format_name,
+          :fee_includes,
+          :checks_payable_to,
+          :contact_name,
+          :contact_phone
         )
       end
     end

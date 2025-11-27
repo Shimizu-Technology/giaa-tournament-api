@@ -2,7 +2,11 @@ class SettingSerializer < ActiveModel::Serializer
   attributes :id, :max_capacity, :stripe_public_key, :stripe_secret_key,
              :stripe_webhook_secret, :tournament_entry_fee, :entry_fee_dollars,
              :admin_email, :payment_mode, :registration_open, :created_at, :updated_at,
-             :capacity_remaining, :at_capacity, :stripe_configured, :test_mode
+             :capacity_remaining, :at_capacity, :stripe_configured, :test_mode,
+             # Tournament configuration
+             :tournament_year, :tournament_edition, :tournament_title, :tournament_name,
+             :event_date, :registration_time, :start_time, :location_name, :location_address,
+             :format_name, :fee_includes, :checks_payable_to, :contact_name, :contact_phone
 
   def capacity_remaining
     object.capacity_remaining

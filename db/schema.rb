@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_26_215824) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_26_223549) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -59,14 +59,28 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_26_215824) do
 
   create_table "settings", force: :cascade do |t|
     t.string "admin_email"
+    t.string "checks_payable_to", default: "GIAAEO"
+    t.string "contact_name", default: "Peter Torres"
+    t.string "contact_phone", default: "671.689.8677"
     t.datetime "created_at", null: false
+    t.string "event_date", default: "January 9, 2026"
+    t.string "fee_includes", default: "Green Fee, Ditty Bag, Drinks & Food"
+    t.string "format_name", default: "Individual Callaway"
+    t.string "location_address", default: "Windward Hills, Guam"
+    t.string "location_name", default: "Country Club of the Pacific"
     t.integer "max_capacity"
     t.string "payment_mode", default: "test"
     t.boolean "registration_open", default: true, null: false
+    t.string "registration_time", default: "11:00 am"
+    t.string "start_time", default: "12:30 pm"
     t.string "stripe_public_key"
     t.string "stripe_secret_key"
     t.string "stripe_webhook_secret"
+    t.string "tournament_edition", default: "5th"
     t.integer "tournament_entry_fee", default: 12500
+    t.string "tournament_name", default: "Edward A.P. Muna II Memorial Golf Tournament"
+    t.string "tournament_title", default: "AIRPORT WEEK"
+    t.string "tournament_year", default: "2026"
     t.datetime "updated_at", null: false
   end
 

@@ -158,7 +158,22 @@ module Api
           at_capacity: setting.at_capacity?,
           registration_open: setting.registration_open,
           entry_fee_cents: setting.tournament_entry_fee || 12500,
-          entry_fee_dollars: (setting.tournament_entry_fee || 12500) / 100.0
+          entry_fee_dollars: (setting.tournament_entry_fee || 12500) / 100.0,
+          # Tournament configuration for landing page
+          tournament_year: setting.tournament_year,
+          tournament_edition: setting.tournament_edition,
+          tournament_title: setting.tournament_title,
+          tournament_name: setting.tournament_name,
+          event_date: setting.event_date,
+          registration_time: setting.registration_time,
+          start_time: setting.start_time,
+          location_name: setting.location_name,
+          location_address: setting.location_address,
+          format_name: setting.format_name,
+          fee_includes: setting.fee_includes,
+          checks_payable_to: setting.checks_payable_to,
+          contact_name: setting.contact_name,
+          contact_phone: setting.contact_phone
         }
       end
 
@@ -179,7 +194,9 @@ module Api
           capacity_remaining: setting.capacity_remaining,
           at_capacity: setting.at_capacity?,
           entry_fee_cents: setting.tournament_entry_fee || 12500,
-          entry_fee_dollars: (setting.tournament_entry_fee || 12500) / 100.0
+          entry_fee_dollars: (setting.tournament_entry_fee || 12500) / 100.0,
+          # Tournament config
+          tournament_name: setting.tournament_name
         }
       end
 

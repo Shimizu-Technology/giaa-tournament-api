@@ -13,9 +13,9 @@
           <!-- Header -->
           <tr>
             <td style="background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); padding: 30px 40px; text-align: center;">
-              <h1 style="margin: 0 0 5px 0; color: #ffffff; font-size: 14px; font-weight: normal; letter-spacing: 2px; text-transform: uppercase;">2026 Airport Week</h1>
-              <h2 style="margin: 0 0 5px 0; color: #ffffff; font-size: 11px; font-style: italic; font-weight: normal;">5th Annual</h2>
-              <h3 style="margin: 0 0 8px 0; color: #ffffff; font-size: 24px; font-weight: bold;">EDWARD A.P. MUNA II</h3>
+              <h1 style="margin: 0 0 5px 0; color: #ffffff; font-size: 14px; font-weight: normal; letter-spacing: 2px; text-transform: uppercase;"><%= @setting.tournament_year %> <%= @setting.tournament_title %></h1>
+              <h2 style="margin: 0 0 5px 0; color: #ffffff; font-size: 11px; font-style: italic; font-weight: normal;"><%= @setting.tournament_edition %> Annual</h2>
+              <h3 style="margin: 0 0 8px 0; color: #ffffff; font-size: 24px; font-weight: bold;"><%= @setting.tournament_name.gsub(' Memorial Golf Tournament', '').upcase %></h3>
               <p style="margin: 0; color: #d4a54a; font-size: 14px; font-weight: 600; letter-spacing: 1px;">MEMORIAL GOLF TOURNAMENT</p>
             </td>
           </tr>
@@ -36,7 +36,7 @@
               <h2 style="margin: 0 0 20px 0; color: #1e3a5f; font-size: 22px;">Hafa Adai, <%= @golfer.name %>!</h2>
               
               <p style="margin: 0 0 25px 0; color: #4a5568; font-size: 15px; line-height: 1.6;">
-                We have received your payment for the <strong>5th Annual Edward A.P. Muna II Memorial Golf Tournament</strong>. You're all set!
+                We have received your payment for the <strong><%= @setting.tournament_edition %> Annual <%= @setting.tournament_name %></strong>. You're all set!
               </p>
 
               <!-- Payment Confirmation Box -->
@@ -57,15 +57,15 @@
                     <table role="presentation" cellspacing="0" cellpadding="0">
                       <tr>
                         <td style="padding: 5px 0; color: #718096; font-size: 14px; width: 100px;">📅 Date:</td>
-                        <td style="padding: 5px 0; color: #2d3748; font-size: 14px; font-weight: 500;">January 9, 2026</td>
+                        <td style="padding: 5px 0; color: #2d3748; font-size: 14px; font-weight: 500;"><%= @setting.event_date %></td>
                       </tr>
                       <tr>
                         <td style="padding: 5px 0; color: #718096; font-size: 14px;">📍 Location:</td>
-                        <td style="padding: 5px 0; color: #2d3748; font-size: 14px; font-weight: 500;">Country Club of the Pacific</td>
+                        <td style="padding: 5px 0; color: #2d3748; font-size: 14px; font-weight: 500;"><%= @setting.location_name %>, <%= @setting.location_address %></td>
                       </tr>
                       <tr>
                         <td style="padding: 5px 0; color: #718096; font-size: 14px;">⏰ Check-in:</td>
-                        <td style="padding: 5px 0; color: #2d3748; font-size: 14px; font-weight: 500;">11:00 AM</td>
+                        <td style="padding: 5px 0; color: #2d3748; font-size: 14px; font-weight: 500;"><%= @setting.registration_time %></td>
                       </tr>
                     </table>
                   </td>
@@ -73,7 +73,7 @@
               </table>
 
               <p style="margin: 0; color: #4a5568; font-size: 14px; line-height: 1.6;">
-                Questions? Contact <strong>Peter Torres</strong> at <strong>671.689.8677</strong>.
+                Questions? Contact <strong><%= @setting.contact_name %></strong> at <strong><%= @setting.contact_phone %></strong>.
               </p>
             </td>
           </tr>
@@ -82,7 +82,7 @@
           <tr>
             <td style="background-color: #1e3a5f; padding: 25px 40px; text-align: center;">
               <p style="margin: 0 0 5px 0; color: #a0aec0; font-size: 12px;">A.B. Won Pat International Airport Authority, Guam</p>
-              <p style="margin: 0; color: #718096; font-size: 11px;">© 2026 Airport Week Golf Tournament</p>
+              <p style="margin: 0; color: #718096; font-size: 11px;">© <%= @setting.tournament_year %> <%= @setting.tournament_title %> Golf Tournament</p>
             </td>
           </tr>
 

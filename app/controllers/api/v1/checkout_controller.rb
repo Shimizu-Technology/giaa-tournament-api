@@ -44,8 +44,8 @@ module Api
               price_data: {
                 currency: "usd",
                 product_data: {
-                  name: "GIAA Golf Tournament Entry Fee",
-                  description: "Edward A.P. Muna II Memorial Golf Tournament - #{golfer.name}",
+                  name: "#{setting.tournament_title || 'Golf Tournament'} Entry Fee",
+                  description: "#{setting.tournament_name || 'Golf Tournament'} - #{golfer.name}",
                 },
                 unit_amount: entry_fee,
               },
