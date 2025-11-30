@@ -236,27 +236,31 @@ module Api
               payment_notes: "Paid via Stripe on #{Time.current.strftime('%Y-%m-%d %H:%M:%S')}"
             )
 
-            # Send registration confirmation email (since it was delayed for Stripe payments)
-            GolferMailer.confirmation_email(golfer).deliver_later
-            
-            # Send payment confirmation email
-            GolferMailer.payment_confirmation_email(golfer).deliver_later
-
-            # Notify admin of new registration AND payment
-            AdminMailer.notify_new_golfer(golfer).deliver_later
-            AdminMailer.notify_payment_received(golfer).deliver_later
-
-            # Broadcast update
-            ActionCable.server.broadcast("golfers_channel", {
-              action: "payment_confirmed",
-              golfer: GolferSerializer.new(golfer).as_json
-            })
-
+            # CRITICAL: Render success response FIRST before any non-critical operations
+            # This ensures the user sees success even if emails or broadcasts fail
             render json: {
               success: true,
               golfer: GolferSerializer.new(golfer),
               message: "Payment confirmed successfully!"
             }
+
+            # Queue emails with staggered delays to avoid rate limiting
+            # Resend allows 2 requests per second, so we stagger by 1 second each
+            GolferMailer.confirmation_email(golfer).deliver_later
+            GolferMailer.payment_confirmation_email(golfer).deliver_later(wait: 2.seconds)
+            AdminMailer.notify_new_golfer(golfer).deliver_later(wait: 4.seconds)
+            AdminMailer.notify_payment_received(golfer).deliver_later(wait: 6.seconds)
+
+            # Broadcast update (non-critical - wrapped in rescue)
+            begin
+              ActionCable.server.broadcast("golfers_channel", {
+                action: "payment_confirmed",
+                golfer: GolferSerializer.new(golfer).as_json
+              })
+            rescue StandardError => e
+              Rails.logger.error("Failed to broadcast payment confirmation: #{e.message}")
+              # Don't raise - the payment was successful
+            end
         rescue Stripe::StripeError => e
           Rails.logger.error("Stripe verification error: #{e.message}")
           render json: { error: "Unable to verify payment: #{e.message}" }, status: :unprocessable_entity
@@ -417,28 +421,29 @@ module Api
           payment_notes: "SIMULATED PAYMENT (Test Mode) - #{Time.current.strftime('%Y-%m-%d %H:%M:%S')}"
         )
 
-        # Send registration confirmation email (since it was delayed for Stripe payments)
-        GolferMailer.confirmation_email(golfer).deliver_later
-        
-        # Send payment confirmation email
-        GolferMailer.payment_confirmation_email(golfer).deliver_later
-
-        # Notify admin of new registration AND payment
-        AdminMailer.notify_new_golfer(golfer).deliver_later
-        AdminMailer.notify_payment_received(golfer).deliver_later
-
-        # Broadcast update
-        ActionCable.server.broadcast("golfers_channel", {
-          action: "payment_confirmed",
-          golfer: GolferSerializer.new(golfer).as_json
-        })
-
+        # CRITICAL: Render success response FIRST before any non-critical operations
         render json: {
           success: true,
           golfer: GolferSerializer.new(golfer),
           message: "Payment confirmed (test mode - no actual charge)",
           test_mode: true
         }
+
+        # Queue emails with staggered delays to avoid rate limiting
+        GolferMailer.confirmation_email(golfer).deliver_later
+        GolferMailer.payment_confirmation_email(golfer).deliver_later(wait: 2.seconds)
+        AdminMailer.notify_new_golfer(golfer).deliver_later(wait: 4.seconds)
+        AdminMailer.notify_payment_received(golfer).deliver_later(wait: 6.seconds)
+
+        # Broadcast update (non-critical - wrapped in rescue)
+        begin
+          ActionCable.server.broadcast("golfers_channel", {
+            action: "payment_confirmed",
+            golfer: GolferSerializer.new(golfer).as_json
+          })
+        rescue StandardError => e
+          Rails.logger.error("Failed to broadcast payment confirmation (test mode): #{e.message}")
+        end
       end
     end
   end

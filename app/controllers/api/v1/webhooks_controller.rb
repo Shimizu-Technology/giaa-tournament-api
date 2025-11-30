@@ -93,15 +93,19 @@ module Api
 
         Rails.logger.info("Golfer #{golfer.id} marked as paid via webhook")
 
-        # Send confirmation emails (if not already sent)
+        # Send confirmation emails with staggered delays to avoid rate limiting
         GolferMailer.payment_confirmation_email(golfer).deliver_later
-        AdminMailer.notify_payment_received(golfer).deliver_later
+        AdminMailer.notify_payment_received(golfer).deliver_later(wait: 2.seconds)
 
-        # Broadcast update
-        ActionCable.server.broadcast("golfers_channel", {
-          action: "payment_confirmed",
-          golfer: GolferSerializer.new(golfer).as_json
-        })
+        # Broadcast update (non-critical - wrapped in rescue)
+        begin
+          ActionCable.server.broadcast("golfers_channel", {
+            action: "payment_confirmed",
+            golfer: GolferSerializer.new(golfer).as_json
+          })
+        rescue StandardError => e
+          Rails.logger.error("Failed to broadcast payment confirmation (webhook): #{e.message}")
+        end
       end
 
       def handle_checkout_session_expired(session)
