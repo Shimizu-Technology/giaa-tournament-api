@@ -47,4 +47,37 @@ class GolferMailerTest < ActionMailer::TestCase
     assert_equal "Payment Received - Golf Tournament Registration", mail.subject
     assert_equal [@golfer.email], mail.to
   end
+
+  test "confirmation_with_payment_email for confirmed golfer" do
+    @golfer.update!(
+      payment_type: "stripe",
+      payment_status: "paid",
+      payment_amount_cents: 12500,
+      stripe_card_brand: "visa",
+      stripe_card_last4: "4242"
+    )
+    mail = GolferMailer.confirmation_with_payment_email(@golfer)
+    
+    assert_equal "Registration Confirmed & Payment Received!", mail.subject
+    assert_equal [@golfer.email], mail.to
+    assert_match @golfer.name, mail.body.encoded
+    assert_match "$125.00", mail.body.encoded
+    assert_match "PAID", mail.body.encoded
+    assert_match "Visa", mail.body.encoded
+    assert_match "4242", mail.body.encoded
+  end
+
+  test "confirmation_with_payment_email for waitlist golfer" do
+    @waitlist_golfer.update!(
+      payment_type: "stripe",
+      payment_status: "paid",
+      payment_amount_cents: 12500
+    )
+    mail = GolferMailer.confirmation_with_payment_email(@waitlist_golfer)
+    
+    assert_equal "Waitlist Confirmed & Payment Received!", mail.subject
+    assert_equal [@waitlist_golfer.email], mail.to
+    assert_match @waitlist_golfer.name, mail.body.encoded
+    assert_match "WAITLIST", mail.body.encoded
+  end
 end

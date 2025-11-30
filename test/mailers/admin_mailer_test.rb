@@ -30,4 +30,33 @@ class AdminMailerTest < ActionMailer::TestCase
     assert_equal "Payment Received: #{@golfer.name}", mail.subject
     assert_equal ["admin-test@example.com"], mail.to
   end
+
+  test "notify_new_registration_with_payment" do
+    # Simulate a Stripe payment
+    @golfer.update!(
+      payment_type: "stripe",
+      payment_status: "paid",
+      payment_amount_cents: 12500,
+      stripe_card_brand: "visa",
+      stripe_card_last4: "4242"
+    )
+    
+    mail = AdminMailer.notify_new_registration_with_payment(@golfer)
+    
+    assert_equal "New Registration & Payment: #{@golfer.name}", mail.subject
+    assert_equal ["admin-test@example.com"], mail.to
+    assert_match @golfer.name, mail.body.encoded
+    assert_match @golfer.email, mail.body.encoded
+    assert_match "Paid Online", mail.body.encoded
+    assert_match "$125.00", mail.body.encoded
+    assert_match "Visa", mail.body.encoded
+    assert_match "4242", mail.body.encoded
+  end
+
+  test "notify_new_registration_with_payment returns nil without admin_email" do
+    @setting.update!(admin_email: nil)
+    mail = AdminMailer.notify_new_registration_with_payment(@golfer)
+    
+    assert_nil mail.to
+  end
 end

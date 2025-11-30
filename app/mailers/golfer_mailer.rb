@@ -1,7 +1,7 @@
 class GolferMailer < ApplicationMailer
   helper PhoneHelper
 
-  # Send confirmation email to golfer after registration
+  # Send confirmation email to golfer after registration (for Pay Later)
   def confirmation_email(golfer)
     @golfer = golfer
     @status = golfer.registration_status
@@ -17,7 +17,7 @@ class GolferMailer < ApplicationMailer
     mail(to: golfer.email, subject: subject)
   end
 
-  # Send payment confirmation after successful payment
+  # Send payment confirmation after successful payment (for manual payments - legacy)
   def payment_confirmation_email(golfer)
     @golfer = golfer
     @setting = Setting.instance
@@ -28,6 +28,22 @@ class GolferMailer < ApplicationMailer
       to: golfer.email,
       subject: "Payment Received - Golf Tournament Registration"
     )
+  end
+
+  # Combined confirmation + payment email for Stripe payments
+  def confirmation_with_payment_email(golfer)
+    @golfer = golfer
+    @status = golfer.registration_status
+    @is_confirmed = @status == "confirmed"
+    @setting = Setting.instance
+    @tournament = golfer.tournament
+    @entry_fee = (golfer.payment_amount_cents || @tournament&.entry_fee || 12500).to_f / 100
+
+    subject = @is_confirmed ?
+      "Registration Confirmed & Payment Received!" :
+      "Waitlist Confirmed & Payment Received!"
+
+    mail(to: golfer.email, subject: subject)
   end
 
   # Send email when promoted from waitlist to confirmed

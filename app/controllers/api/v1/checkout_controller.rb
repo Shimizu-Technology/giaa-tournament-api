@@ -270,11 +270,9 @@ module Api
             }
 
             # Queue emails with staggered delays to avoid rate limiting
-            # Resend allows 2 requests per second, so we stagger by 1 second each
-            GolferMailer.confirmation_email(golfer).deliver_later
-            GolferMailer.payment_confirmation_email(golfer).deliver_later(wait: 2.seconds)
-            AdminMailer.notify_new_golfer(golfer).deliver_later(wait: 4.seconds)
-            AdminMailer.notify_payment_received(golfer).deliver_later(wait: 6.seconds)
+            # For Stripe payments, send combined emails (registration + payment in one)
+            GolferMailer.confirmation_with_payment_email(golfer).deliver_later
+            AdminMailer.notify_new_registration_with_payment(golfer).deliver_later(wait: 2.seconds)
 
             # Broadcast update (non-critical - wrapped in rescue)
             begin
@@ -455,10 +453,9 @@ module Api
         }
 
         # Queue emails with staggered delays to avoid rate limiting
-        GolferMailer.confirmation_email(golfer).deliver_later
-        GolferMailer.payment_confirmation_email(golfer).deliver_later(wait: 2.seconds)
-        AdminMailer.notify_new_golfer(golfer).deliver_later(wait: 4.seconds)
-        AdminMailer.notify_payment_received(golfer).deliver_later(wait: 6.seconds)
+        # For Stripe payments (test mode), send combined emails (registration + payment in one)
+        GolferMailer.confirmation_with_payment_email(golfer).deliver_later
+        AdminMailer.notify_new_registration_with_payment(golfer).deliver_later(wait: 2.seconds)
 
         # Broadcast update (non-critical - wrapped in rescue)
         begin
