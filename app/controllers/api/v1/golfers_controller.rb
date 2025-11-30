@@ -109,6 +109,9 @@ module Api
       end
 
       # DELETE /api/v1/golfers/:id
+      # NOTE: Delete is intentionally not exposed in the UI.
+      # Use cancel/refund instead to maintain audit trail.
+      # This endpoint exists only for developer/console use if absolutely needed.
       def destroy
         golfer = Golfer.find(params[:id])
         golfer_name = golfer.name
@@ -126,6 +129,137 @@ module Api
         
         broadcast_golfer_update(golfer, action: "deleted")
         head :no_content
+      end
+
+      # POST /api/v1/golfers/:id/cancel
+      # Cancel a golfer's registration (without refund)
+      def cancel
+        golfer = Golfer.find(params[:id])
+
+        unless golfer.can_cancel?
+          render json: { error: "Golfer is already cancelled" }, status: :unprocessable_entity
+          return
+        end
+
+        # If they paid via Stripe, they should use refund instead
+        if golfer.payment_status == "paid" && golfer.payment_type == "stripe"
+          render json: { error: "This golfer paid via Stripe. Use refund instead to process their cancellation." }, status: :unprocessable_entity
+          return
+        end
+
+        reason = params[:reason]
+        golfer.cancel!(admin: current_admin, reason: reason)
+
+        # Send cancellation email
+        GolferMailer.cancellation_email(golfer).deliver_later rescue nil
+
+        ActivityLog.log(
+          admin: current_admin,
+          action: 'golfer_cancelled',
+          target: golfer,
+          details: "Cancelled registration for #{golfer.name}",
+          metadata: { reason: reason, previous_status: golfer.registration_status }
+        )
+
+        broadcast_golfer_update(golfer)
+        render json: golfer
+      end
+
+      # POST /api/v1/golfers/:id/refund
+      # Process a refund through Stripe and cancel the registration
+      def refund
+        golfer = Golfer.find(params[:id])
+
+        unless golfer.can_refund?
+          if golfer.refunded?
+            render json: { error: "This golfer has already been refunded" }, status: :unprocessable_entity
+          elsif golfer.payment_type != "stripe"
+            render json: { error: "This golfer did not pay via Stripe. Use cancel instead." }, status: :unprocessable_entity
+          elsif golfer.payment_status != "paid"
+            render json: { error: "This golfer has not paid yet. Use cancel instead." }, status: :unprocessable_entity
+          else
+            render json: { error: "Cannot process refund for this golfer" }, status: :unprocessable_entity
+          end
+          return
+        end
+
+        reason = params[:reason]
+
+        begin
+          stripe_refund = golfer.process_refund!(admin: current_admin, reason: reason)
+
+          ActivityLog.log(
+            admin: current_admin,
+            action: 'golfer_refunded',
+            target: golfer,
+            details: "Refunded #{golfer.name} - $#{'%.2f' % (stripe_refund.amount / 100.0)}",
+            metadata: { 
+              reason: reason, 
+              refund_id: stripe_refund.id,
+              amount_cents: stripe_refund.amount
+            }
+          )
+
+          broadcast_golfer_update(golfer)
+          render json: {
+            success: true,
+            golfer: GolferSerializer.new(golfer),
+            refund: {
+              id: stripe_refund.id,
+              amount: stripe_refund.amount,
+              status: stripe_refund.status
+            },
+            message: "Refund processed successfully"
+          }
+        rescue Stripe::StripeError => e
+          Rails.logger.error("Stripe refund error: #{e.message}")
+          render json: { error: "Stripe refund failed: #{e.message}" }, status: :unprocessable_entity
+        rescue StandardError => e
+          Rails.logger.error("Refund error: #{e.message}")
+          render json: { error: e.message }, status: :unprocessable_entity
+        end
+      end
+
+      # POST /api/v1/golfers/:id/mark_refunded
+      # For non-Stripe payments (cash/check) where refund was processed manually
+      def mark_refunded
+        golfer = Golfer.find(params[:id])
+
+        if golfer.refunded?
+          render json: { error: "This golfer has already been refunded" }, status: :unprocessable_entity
+          return
+        end
+
+        if golfer.payment_type == "stripe" && golfer.payment_status == "paid"
+          render json: { error: "This golfer paid via Stripe. Use the refund action to process through Stripe." }, status: :unprocessable_entity
+          return
+        end
+
+        reason = params[:reason]
+        refund_amount = params[:refund_amount_cents] || golfer.payment_amount_cents || golfer.tournament&.entry_fee
+
+        golfer.update!(
+          registration_status: "cancelled",
+          payment_status: "refunded",
+          refund_amount_cents: refund_amount,
+          refund_reason: reason,
+          refunded_at: Time.current,
+          refunded_by: current_admin
+        )
+
+        # Send refund notification email
+        GolferMailer.refund_confirmation_email(golfer).deliver_later rescue nil
+
+        ActivityLog.log(
+          admin: current_admin,
+          action: 'golfer_refunded',
+          target: golfer,
+          details: "Marked #{golfer.name} as refunded (manual) - $#{'%.2f' % (refund_amount.to_i / 100.0)}",
+          metadata: { reason: reason, amount_cents: refund_amount }
+        )
+
+        broadcast_golfer_update(golfer)
+        render json: golfer
       end
 
       # POST /api/v1/golfers/:id/check_in

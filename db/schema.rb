@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_27_142718) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_30_135458) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -52,6 +52,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_27_142718) do
     t.string "mobile"
     t.string "name"
     t.text "notes"
+    t.integer "payment_amount_cents"
     t.string "payment_method"
     t.text "payment_notes"
     t.string "payment_status"
@@ -59,14 +60,22 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_27_142718) do
     t.string "phone"
     t.integer "position"
     t.string "receipt_number"
+    t.integer "refund_amount_cents"
+    t.text "refund_reason"
+    t.datetime "refunded_at"
+    t.integer "refunded_by_id"
     t.string "registration_status"
+    t.string "stripe_card_brand"
+    t.string "stripe_card_last4"
     t.string "stripe_checkout_session_id"
     t.string "stripe_payment_intent_id"
+    t.string "stripe_refund_id"
     t.bigint "tournament_id", null: false
     t.datetime "updated_at", null: false
     t.datetime "waiver_accepted_at"
     t.index ["group_id"], name: "index_golfers_on_group_id"
     t.index ["stripe_checkout_session_id"], name: "index_golfers_on_stripe_checkout_session_id", unique: true, where: "(stripe_checkout_session_id IS NOT NULL)"
+    t.index ["stripe_refund_id"], name: "index_golfers_on_stripe_refund_id", unique: true, where: "(stripe_refund_id IS NOT NULL)"
     t.index ["tournament_id", "email"], name: "index_golfers_on_tournament_id_and_email", unique: true
     t.index ["tournament_id"], name: "index_golfers_on_tournament_id"
   end
@@ -134,6 +143,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_27_142718) do
 
   add_foreign_key "activity_logs", "admins"
   add_foreign_key "activity_logs", "tournaments"
+  add_foreign_key "golfers", "admins", column: "refunded_by_id", on_delete: :nullify
   add_foreign_key "golfers", "groups"
   add_foreign_key "golfers", "tournaments"
   add_foreign_key "groups", "tournaments"

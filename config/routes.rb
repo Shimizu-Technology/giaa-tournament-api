@@ -30,6 +30,9 @@ Rails.application.routes.draw do
           post :promote
           post :demote
           post :update_payment_status
+          post :cancel
+          post :refund
+          post :mark_refunded
         end
         collection do
           get :registration_status

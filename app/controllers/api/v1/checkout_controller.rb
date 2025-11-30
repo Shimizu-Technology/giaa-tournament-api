@@ -227,13 +227,38 @@ module Api
           # Payment was successful - update golfer
             # Get the payment intent ID for record keeping
             payment_intent_id = session.payment_intent
+            payment_amount = session.amount_total
 
-            # Update golfer payment status
+            # Try to get card details from the payment intent
+            card_brand = nil
+            card_last4 = nil
+            begin
+              if payment_intent_id.present?
+                payment_intent = Stripe::PaymentIntent.retrieve(payment_intent_id)
+                if payment_intent.payment_method.present?
+                  payment_method = Stripe::PaymentMethod.retrieve(payment_intent.payment_method)
+                  if payment_method.card.present?
+                    card_brand = payment_method.card.brand
+                    card_last4 = payment_method.card.last4
+                  end
+                end
+              end
+            rescue Stripe::StripeError => e
+              Rails.logger.warn("Could not retrieve card details: #{e.message}")
+            end
+
+            # Format a nice timestamp in Guam time
+            formatted_time = Time.current.in_time_zone('Pacific/Guam').strftime('%B %d, %Y at %I:%M %p')
+
+            # Update golfer payment status with all details
             golfer.update!(
               payment_status: "paid",
               stripe_payment_intent_id: payment_intent_id,
               payment_method: "stripe",
-              payment_notes: "Paid via Stripe on #{Time.current.strftime('%Y-%m-%d %H:%M:%S')}"
+              payment_amount_cents: payment_amount,
+              stripe_card_brand: card_brand,
+              stripe_card_last4: card_last4,
+              payment_notes: "Paid via Stripe on #{formatted_time} (Guam Time)"
             )
 
             # CRITICAL: Render success response FIRST before any non-critical operations

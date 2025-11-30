@@ -1,6 +1,7 @@
 class Golfer < ApplicationRecord
   belongs_to :tournament
   belongs_to :group, optional: true
+  belongs_to :refunded_by, class_name: "Admin", optional: true
 
   # Validations
   validates :name, presence: true
@@ -9,22 +10,35 @@ class Golfer < ApplicationRecord
                     format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :phone, presence: true
   validates :payment_type, presence: true, inclusion: { in: %w[stripe pay_on_day] }
-  validates :payment_status, inclusion: { in: %w[paid unpaid], allow_nil: true }
-  validates :registration_status, inclusion: { in: %w[confirmed waitlist], allow_nil: true }
+  validates :payment_status, inclusion: { in: %w[paid unpaid refunded], allow_nil: true }
+  validates :registration_status, inclusion: { in: %w[confirmed waitlist cancelled], allow_nil: true }
   validates :waiver_accepted_at, presence: true
   validates :tournament_id, presence: true
 
-  # Scopes
+  # Scopes - Active golfers (not cancelled)
+  scope :active, -> { where.not(registration_status: "cancelled") }
   scope :confirmed, -> { where(registration_status: "confirmed") }
   scope :waitlist, -> { where(registration_status: "waitlist") }
+  scope :cancelled, -> { where(registration_status: "cancelled") }
+  
+  # Payment scopes
   scope :paid, -> { where(payment_status: "paid") }
   scope :unpaid, -> { where(payment_status: "unpaid") }
+  scope :refunded, -> { where(payment_status: "refunded") }
+  
+  # Check-in scopes
   scope :checked_in, -> { where.not(checked_in_at: nil) }
   scope :not_checked_in, -> { where(checked_in_at: nil) }
+  
+  # Group scopes
   scope :unassigned, -> { where(group_id: nil) }
   scope :assigned, -> { where.not(group_id: nil) }
+  
+  # Payment type scopes
   scope :pay_now, -> { where(payment_type: "stripe") }
   scope :pay_on_day, -> { where(payment_type: "pay_on_day") }
+  
+  # Tournament scope
   scope :for_tournament, ->(tournament_id) { where(tournament_id: tournament_id) }
 
   # Set registration status based on capacity
@@ -37,10 +51,28 @@ class Golfer < ApplicationRecord
   after_commit :send_confirmation_email, on: :create, if: :should_send_immediate_emails?
   after_commit :notify_admin, on: :create, if: :should_send_immediate_emails?
 
+  # Status check methods
   def checked_in?
     checked_in_at.present?
   end
 
+  def cancelled?
+    registration_status == "cancelled"
+  end
+
+  def refunded?
+    payment_status == "refunded"
+  end
+
+  def can_refund?
+    payment_status == "paid" && payment_type == "stripe" && stripe_payment_intent_id.present? && !refunded?
+  end
+
+  def can_cancel?
+    !cancelled?
+  end
+
+  # Action methods
   def check_in!
     # Toggle check-in status
     if checked_in?
@@ -48,6 +80,50 @@ class Golfer < ApplicationRecord
     else
       update!(checked_in_at: Time.current)
     end
+  end
+
+  # Cancel a golfer's registration (without refund - for unpaid or non-Stripe payments)
+  def cancel!(admin: nil, reason: nil)
+    update!(
+      registration_status: "cancelled",
+      refund_reason: reason,
+      refunded_at: Time.current,
+      refunded_by: admin
+    )
+  end
+
+  # Process a refund through Stripe and cancel the registration
+  def process_refund!(admin:, reason: nil)
+    raise "Cannot refund - not a Stripe payment" unless payment_type == "stripe"
+    raise "Cannot refund - no payment intent" unless stripe_payment_intent_id.present?
+    raise "Already refunded" if refunded?
+
+    setting = Setting.instance
+    raise "Stripe not configured" unless setting.stripe_secret_key.present?
+
+    Stripe.api_key = setting.stripe_secret_key
+
+    # Process the refund through Stripe
+    refund = Stripe::Refund.create({
+      payment_intent: stripe_payment_intent_id,
+      reason: "requested_by_customer"
+    })
+
+    # Update the golfer record
+    update!(
+      registration_status: "cancelled",
+      payment_status: "refunded",
+      stripe_refund_id: refund.id,
+      refund_amount_cents: refund.amount,
+      refund_reason: reason,
+      refunded_at: Time.current,
+      refunded_by: admin
+    )
+
+    # Send refund notification email
+    GolferMailer.refund_confirmation_email(self).deliver_later rescue nil
+
+    refund
   end
 
   def group_position_label
@@ -59,6 +135,56 @@ class Golfer < ApplicationRecord
   # Check if this is a Stripe payment that's been confirmed
   def stripe_payment_confirmed?
     payment_type == "stripe" && payment_status == "paid" && stripe_payment_intent_id.present?
+  end
+
+  # Format payment details for display
+  def formatted_payment_details
+    return nil unless payment_status == "paid" || payment_status == "refunded"
+
+    details = []
+    
+    if payment_amount_cents.present?
+      details << "Amount: $#{'%.2f' % (payment_amount_cents / 100.0)}"
+    end
+
+    if stripe_card_brand.present? && stripe_card_last4.present?
+      details << "Card: #{stripe_card_brand.capitalize} •••• #{stripe_card_last4}"
+    end
+
+    if stripe_payment_intent_id.present?
+      details << "Transaction: #{stripe_payment_intent_id}"
+    end
+
+    details.join("\n")
+  end
+
+  # Format refund details for display
+  def formatted_refund_details
+    return nil unless refunded?
+
+    details = []
+    
+    if refund_amount_cents.present?
+      details << "Refunded: $#{'%.2f' % (refund_amount_cents / 100.0)}"
+    end
+
+    if stripe_refund_id.present?
+      details << "Refund ID: #{stripe_refund_id}"
+    end
+
+    if refunded_at.present?
+      details << "Date: #{refunded_at.in_time_zone('Pacific/Guam').strftime('%B %d, %Y at %I:%M %p')} (Guam Time)"
+    end
+
+    if refund_reason.present?
+      details << "Reason: #{refund_reason}"
+    end
+
+    if refunded_by.present?
+      details << "Processed by: #{refunded_by.name || refunded_by.email}"
+    end
+
+    details.join("\n")
   end
 
   private

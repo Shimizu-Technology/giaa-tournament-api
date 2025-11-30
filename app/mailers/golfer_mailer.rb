@@ -7,7 +7,8 @@ class GolferMailer < ApplicationMailer
     @status = golfer.registration_status
     @is_confirmed = @status == "confirmed"
     @setting = Setting.instance
-    @entry_fee = @setting.tournament_entry_fee.to_f / 100
+    @tournament = golfer.tournament
+    @entry_fee = @tournament&.entry_fee.to_f / 100
 
     subject = @is_confirmed ?
       "Your Golf Tournament Registration is Confirmed!" :
@@ -20,7 +21,8 @@ class GolferMailer < ApplicationMailer
   def payment_confirmation_email(golfer)
     @golfer = golfer
     @setting = Setting.instance
-    @entry_fee = @setting.tournament_entry_fee.to_f / 100
+    @tournament = golfer.tournament
+    @entry_fee = @tournament&.entry_fee.to_f / 100
 
     mail(
       to: golfer.email,
@@ -32,12 +34,37 @@ class GolferMailer < ApplicationMailer
   def promotion_email(golfer)
     @golfer = golfer
     @setting = Setting.instance
-    @entry_fee = @setting.tournament_entry_fee.to_f / 100
+    @tournament = golfer.tournament
+    @entry_fee = @tournament&.entry_fee.to_f / 100
 
     mail(
       to: golfer.email,
       subject: "Great News! Your Golf Tournament Spot is Confirmed!"
     )
   end
-end
 
+  # Send refund confirmation email
+  def refund_confirmation_email(golfer)
+    @golfer = golfer
+    @setting = Setting.instance
+    @tournament = golfer.tournament
+    @refund_amount = golfer.refund_amount_cents.to_f / 100
+
+    mail(
+      to: golfer.email,
+      subject: "Refund Processed - Golf Tournament Registration"
+    )
+  end
+
+  # Send cancellation confirmation email (for non-refund cancellations)
+  def cancellation_email(golfer)
+    @golfer = golfer
+    @setting = Setting.instance
+    @tournament = golfer.tournament
+
+    mail(
+      to: golfer.email,
+      subject: "Registration Cancelled - Golf Tournament"
+    )
+  end
+end
