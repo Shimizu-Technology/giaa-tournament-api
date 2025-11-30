@@ -134,10 +134,14 @@ module Api
               payment_notes: "Paid via Stripe on #{Time.current.strftime('%Y-%m-%d %H:%M:%S')}"
             )
 
-            # Send confirmation email
+            # Send registration confirmation email (since it was delayed for Stripe payments)
+            GolferMailer.confirmation_email(golfer).deliver_later
+            
+            # Send payment confirmation email
             GolferMailer.payment_confirmation_email(golfer).deliver_later
 
-            # Notify admin
+            # Notify admin of new registration AND payment
+            AdminMailer.notify_new_golfer(golfer).deliver_later
             AdminMailer.notify_payment_received(golfer).deliver_later
 
             # Broadcast update
@@ -240,10 +244,14 @@ module Api
           payment_notes: "SIMULATED PAYMENT (Test Mode) - #{Time.current.strftime('%Y-%m-%d %H:%M:%S')}"
         )
 
-        # Send confirmation email (even in test mode, for testing email flow)
+        # Send registration confirmation email (since it was delayed for Stripe payments)
+        GolferMailer.confirmation_email(golfer).deliver_later
+        
+        # Send payment confirmation email
         GolferMailer.payment_confirmation_email(golfer).deliver_later
 
-        # Notify admin
+        # Notify admin of new registration AND payment
+        AdminMailer.notify_new_golfer(golfer).deliver_later
         AdminMailer.notify_payment_received(golfer).deliver_later
 
         # Broadcast update

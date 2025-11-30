@@ -32,8 +32,10 @@ class Golfer < ApplicationRecord
   before_validation :set_default_payment_status, on: :create
 
   # Callbacks - use after_commit to ensure golfer is persisted before jobs run
-  after_commit :send_confirmation_email, on: :create
-  after_commit :notify_admin, on: :create
+  # For Stripe payments, emails are sent AFTER payment is confirmed (in CheckoutController#confirm)
+  # For pay_on_day, emails are sent immediately on registration
+  after_commit :send_confirmation_email, on: :create, if: :should_send_immediate_emails?
+  after_commit :notify_admin, on: :create, if: :should_send_immediate_emails?
 
   def checked_in?
     checked_in_at.present?
@@ -54,7 +56,18 @@ class Golfer < ApplicationRecord
     "#{group.group_number}#{letter.upcase}"
   end
 
+  # Check if this is a Stripe payment that's been confirmed
+  def stripe_payment_confirmed?
+    payment_type == "stripe" && payment_status == "paid" && stripe_payment_intent_id.present?
+  end
+
   private
+
+  # For Stripe payments, don't send emails until payment is confirmed
+  # For pay_on_day, send emails immediately
+  def should_send_immediate_emails?
+    payment_type != "stripe"
+  end
 
   def set_registration_status
     return if registration_status.present?
