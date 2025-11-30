@@ -148,21 +148,35 @@ module Api
         end
 
         reason = params[:reason]
+        
+        # CRITICAL: Cancel the golfer first
         golfer.cancel!(admin: current_admin, reason: reason)
 
-        # Send cancellation email
-        GolferMailer.cancellation_email(golfer).deliver_later rescue nil
-
-        ActivityLog.log(
-          admin: current_admin,
-          action: 'golfer_cancelled',
-          target: golfer,
-          details: "Cancelled registration for #{golfer.name}",
-          metadata: { reason: reason, previous_status: golfer.registration_status }
-        )
-
-        broadcast_golfer_update(golfer)
+        # CRITICAL: Return success response FIRST before non-critical operations
         render json: golfer
+
+        # NON-CRITICAL: Send cancellation email (wrapped in rescue)
+        begin
+          GolferMailer.cancellation_email(golfer).deliver_later
+        rescue StandardError => e
+          Rails.logger.error("Failed to send cancellation email: #{e.message}")
+        end
+
+        # NON-CRITICAL: Log activity (wrapped in rescue)
+        begin
+          ActivityLog.log(
+            admin: current_admin,
+            action: 'golfer_cancelled',
+            target: golfer,
+            details: "Cancelled registration for #{golfer.name}",
+            metadata: { reason: reason }
+          )
+        rescue StandardError => e
+          Rails.logger.error("Failed to log cancellation activity: #{e.message}")
+        end
+
+        # NON-CRITICAL: Broadcast update (wrapped in rescue)
+        broadcast_golfer_update(golfer)
       end
 
       # POST /api/v1/golfers/:id/refund
@@ -186,21 +200,11 @@ module Api
         reason = params[:reason]
 
         begin
+          # CRITICAL: Process the refund through Stripe first
           stripe_refund = golfer.process_refund!(admin: current_admin, reason: reason)
 
-          ActivityLog.log(
-            admin: current_admin,
-            action: 'golfer_refunded',
-            target: golfer,
-            details: "Refunded #{golfer.name} - $#{'%.2f' % (stripe_refund.amount / 100.0)}",
-            metadata: { 
-              reason: reason, 
-              refund_id: stripe_refund.id,
-              amount_cents: stripe_refund.amount
-            }
-          )
-
-          broadcast_golfer_update(golfer)
+          # CRITICAL: Return success response FIRST before non-critical operations
+          # This ensures user sees success even if activity log or broadcast fails
           render json: {
             success: true,
             golfer: GolferSerializer.new(golfer),
@@ -211,12 +215,35 @@ module Api
             },
             message: "Refund processed successfully"
           }
+
+          # NON-CRITICAL: Log activity (wrapped in rescue)
+          begin
+            ActivityLog.log(
+              admin: current_admin,
+              action: 'golfer_refunded',
+              target: golfer,
+              details: "Refunded #{golfer.name} - $#{'%.2f' % (stripe_refund.amount / 100.0)}",
+              metadata: { 
+                reason: reason, 
+                refund_id: stripe_refund.id,
+                amount_cents: stripe_refund.amount
+              }
+            )
+          rescue StandardError => e
+            Rails.logger.error("Failed to log refund activity: #{e.message}")
+          end
+
+          # NON-CRITICAL: Broadcast update (already wrapped in rescue in helper method)
+          broadcast_golfer_update(golfer)
+
         rescue Stripe::StripeError => e
+          # CRITICAL: Stripe refund failed - this is a real error
           Rails.logger.error("Stripe refund error: #{e.message}")
           render json: { error: "Stripe refund failed: #{e.message}" }, status: :unprocessable_entity
-        rescue StandardError => e
-          Rails.logger.error("Refund error: #{e.message}")
-          render json: { error: e.message }, status: :unprocessable_entity
+        rescue ActiveRecord::RecordInvalid => e
+          # CRITICAL: Database update failed - this is a real error
+          Rails.logger.error("Refund database error: #{e.message}")
+          render json: { error: "Failed to update golfer record: #{e.message}" }, status: :unprocessable_entity
         end
       end
 
@@ -238,6 +265,7 @@ module Api
         reason = params[:reason]
         refund_amount = params[:refund_amount_cents] || golfer.payment_amount_cents || golfer.tournament&.entry_fee
 
+        # CRITICAL: Update the golfer record first
         golfer.update!(
           registration_status: "cancelled",
           payment_status: "refunded",
@@ -247,19 +275,31 @@ module Api
           refunded_by: current_admin
         )
 
-        # Send refund notification email
-        GolferMailer.refund_confirmation_email(golfer).deliver_later rescue nil
-
-        ActivityLog.log(
-          admin: current_admin,
-          action: 'golfer_refunded',
-          target: golfer,
-          details: "Marked #{golfer.name} as refunded (manual) - $#{'%.2f' % (refund_amount.to_i / 100.0)}",
-          metadata: { reason: reason, amount_cents: refund_amount }
-        )
-
-        broadcast_golfer_update(golfer)
+        # CRITICAL: Return success response FIRST
         render json: golfer
+
+        # NON-CRITICAL: Send refund notification email
+        begin
+          GolferMailer.refund_confirmation_email(golfer).deliver_later
+        rescue StandardError => e
+          Rails.logger.error("Failed to send refund email: #{e.message}")
+        end
+
+        # NON-CRITICAL: Log activity
+        begin
+          ActivityLog.log(
+            admin: current_admin,
+            action: 'golfer_refunded',
+            target: golfer,
+            details: "Marked #{golfer.name} as refunded (manual) - $#{'%.2f' % (refund_amount.to_i / 100.0)}",
+            metadata: { reason: reason, amount_cents: refund_amount }
+          )
+        rescue StandardError => e
+          Rails.logger.error("Failed to log manual refund activity: #{e.message}")
+        end
+
+        # NON-CRITICAL: Broadcast update
+        broadcast_golfer_update(golfer)
       end
 
       # POST /api/v1/golfers/:id/check_in
