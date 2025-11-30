@@ -292,6 +292,7 @@ module Api
             contact_phone: tournament.contact_phone,
             # Global settings
             stripe_configured: settings.stripe_configured?,
+            stripe_public_key: settings.stripe_public_key.presence,
             payment_mode: settings.payment_mode
           }
         else

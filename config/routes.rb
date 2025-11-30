@@ -71,6 +71,7 @@ Rails.application.routes.draw do
 
       # Checkout
       post "checkout" => "checkout#create"
+      post "checkout/embedded" => "checkout#create_embedded"
       post "checkout/confirm" => "checkout#confirm"
       get "checkout/session/:session_id" => "checkout#session_status"
 

@@ -79,8 +79,92 @@ module Api
         end
       end
 
+      # POST /api/v1/checkout/embedded
+      # Create a checkout session for embedded checkout (golfer not created yet)
+      def create_embedded
+        setting = Setting.instance
+        tournament = Tournament.current
+
+        unless tournament&.can_register?
+          render json: { error: "Registration is currently closed." }, status: :unprocessable_entity
+          return
+        end
+
+        # Validate required fields
+        golfer_data = params[:golfer]
+        unless golfer_data[:name].present? && golfer_data[:email].present? && golfer_data[:phone].present?
+          render json: { error: "Name, email, and phone are required" }, status: :unprocessable_entity
+          return
+        end
+
+        # Check if email already registered for this tournament
+        if tournament.golfers.exists?(email: golfer_data[:email])
+          render json: { error: "This email is already registered for this tournament" }, status: :unprocessable_entity
+          return
+        end
+
+        # TEST MODE: Return a simulated embedded session
+        if setting.test_mode?
+          return handle_test_mode_embedded(golfer_data, tournament)
+        end
+
+        # PRODUCTION MODE: Real Stripe embedded checkout
+        unless setting.stripe_secret_key.present?
+          render json: { error: "Stripe is not configured. Please contact the administrator." }, status: :service_unavailable
+          return
+        end
+
+        Stripe.api_key = setting.stripe_secret_key
+        frontend_url = ENV.fetch("FRONTEND_URL", "http://localhost:5173")
+        entry_fee = tournament.entry_fee || 12500
+
+        begin
+          # Create a Stripe Checkout Session for embedded checkout
+          session = Stripe::Checkout::Session.create({
+            ui_mode: "embedded",
+            payment_method_types: ["card"],
+            line_items: [{
+              price_data: {
+                currency: "usd",
+                product_data: {
+                  name: "#{tournament.name} Entry Fee",
+                  description: "Golf Tournament Registration - #{golfer_data[:name]}",
+                },
+                unit_amount: entry_fee,
+              },
+              quantity: 1,
+            }],
+            mode: "payment",
+            return_url: "#{frontend_url}/registration/success?session_id={CHECKOUT_SESSION_ID}",
+            customer_email: golfer_data[:email],
+            metadata: {
+              # Store all golfer data to create record after payment
+              tournament_id: tournament.id.to_s,
+              golfer_name: golfer_data[:name],
+              golfer_email: golfer_data[:email],
+              golfer_phone: golfer_data[:phone],
+              golfer_mobile: golfer_data[:mobile] || "",
+              golfer_company: golfer_data[:company] || "",
+              golfer_address: golfer_data[:address] || "",
+              waiver_accepted: "true",
+              payment_type: "stripe",
+            },
+            billing_address_collection: "required",
+          })
+
+          render json: {
+            client_secret: session.client_secret,
+            session_id: session.id,
+            test_mode: false,
+          }
+        rescue Stripe::StripeError => e
+          Rails.logger.error("Stripe embedded checkout error: #{e.message}")
+          render json: { error: "Payment processing error: #{e.message}" }, status: :unprocessable_entity
+        end
+      end
+
       # POST /api/v1/checkout/confirm
-      # Called after successful payment - verifies with Stripe and updates golfer
+      # Called after successful payment - verifies with Stripe and creates/updates golfer
       def confirm
         session_id = params[:session_id]
 
@@ -92,7 +176,7 @@ module Api
         setting = Setting.instance
 
         # Handle test mode confirmation
-        if session_id.start_with?("test_session_")
+        if session_id.start_with?("test_session_") || session_id.start_with?("test_embedded_")
           return handle_test_mode_confirm(session_id)
         end
         
@@ -107,22 +191,40 @@ module Api
           # Retrieve the session from Stripe to verify payment
           session = Stripe::Checkout::Session.retrieve(session_id)
 
-          # Find the golfer by session ID
-          golfer = Golfer.find_by(stripe_checkout_session_id: session_id)
-
-          unless golfer
-            # Try to find by metadata golfer_id
-            golfer_id = session.metadata.golfer_id
-            golfer = Golfer.find(golfer_id) if golfer_id.present?
-          end
-
-          unless golfer
-            render json: { error: "Golfer not found for this session" }, status: :not_found
+          # Check if payment was successful first
+          unless session.payment_status == "paid"
+            render json: {
+              success: false,
+              payment_status: session.payment_status,
+              message: "Payment has not been completed yet"
+            }, status: :payment_required
             return
           end
 
-          # Check if payment was successful
-          if session.payment_status == "paid"
+          # Find the golfer by session ID (for legacy redirect flow)
+          golfer = Golfer.find_by(stripe_checkout_session_id: session_id)
+
+          # If no golfer exists, this is from embedded checkout - create from metadata
+          unless golfer
+            golfer = create_golfer_from_session(session)
+          end
+
+          unless golfer
+            render json: { error: "Could not find or create golfer for this session" }, status: :unprocessable_entity
+            return
+          end
+
+          # Skip if already marked as paid (idempotency)
+          if golfer.payment_status == "paid" && golfer.stripe_payment_intent_id.present?
+            render json: {
+              success: true,
+              golfer: GolferSerializer.new(golfer),
+              message: "Payment already confirmed!"
+            }
+            return
+          end
+
+          # Payment was successful - update golfer
             # Get the payment intent ID for record keeping
             payment_intent_id = session.payment_intent
 
@@ -155,13 +257,6 @@ module Api
               golfer: GolferSerializer.new(golfer),
               message: "Payment confirmed successfully!"
             }
-          else
-            render json: {
-              success: false,
-              payment_status: session.payment_status,
-              message: "Payment has not been completed yet"
-            }, status: :payment_required
-          end
         rescue Stripe::StripeError => e
           Rails.logger.error("Stripe verification error: #{e.message}")
           render json: { error: "Unable to verify payment: #{e.message}" }, status: :unprocessable_entity
@@ -197,6 +292,60 @@ module Api
 
       private
 
+      # Create a golfer from Stripe session metadata (for embedded checkout flow)
+      def create_golfer_from_session(session)
+        metadata = session.metadata
+        return nil unless metadata.tournament_id.present? && metadata.golfer_email.present?
+
+        tournament = Tournament.find_by(id: metadata.tournament_id)
+        return nil unless tournament
+
+        # Check if golfer already exists (race condition protection)
+        existing = tournament.golfers.find_by(email: metadata.golfer_email)
+        return existing if existing
+
+        # Create the golfer
+        golfer = tournament.golfers.create!(
+          name: metadata.golfer_name,
+          email: metadata.golfer_email,
+          phone: metadata.golfer_phone,
+          mobile: metadata.golfer_mobile.presence,
+          company: metadata.golfer_company.presence,
+          address: metadata.golfer_address.presence,
+          payment_type: "stripe",
+          payment_status: "unpaid", # Will be updated to paid right after
+          waiver_accepted_at: Time.current,
+          stripe_checkout_session_id: session.id
+        )
+
+        Rails.logger.info("Created golfer #{golfer.id} from embedded checkout session #{session.id}")
+        golfer
+      rescue ActiveRecord::RecordInvalid => e
+        Rails.logger.error("Failed to create golfer from session: #{e.message}")
+        nil
+      end
+
+      # Handle embedded checkout in test mode
+      def handle_test_mode_embedded(golfer_data, tournament)
+        test_session_id = "test_embedded_#{SecureRandom.hex(16)}"
+        
+        # Store the golfer data temporarily (we'll create on confirm)
+        Rails.cache.write(
+          "test_embedded_#{test_session_id}",
+          {
+            tournament_id: tournament.id,
+            golfer_data: golfer_data.to_unsafe_h,
+          },
+          expires_in: 1.hour
+        )
+
+        render json: {
+          client_secret: "test_secret_#{test_session_id}",
+          session_id: test_session_id,
+          test_mode: true,
+        }
+      end
+
       # Handle checkout in test mode (no real Stripe calls)
       def handle_test_mode_checkout(golfer, setting)
         # Generate a fake session ID
@@ -220,6 +369,30 @@ module Api
       # Handle payment confirmation in test mode
       def handle_test_mode_confirm(session_id)
         golfer = Golfer.find_by(stripe_checkout_session_id: session_id)
+
+        # For embedded test mode, create golfer from cached data
+        if golfer.nil? && session_id.start_with?("test_embedded_")
+          cached_data = Rails.cache.read("test_embedded_#{session_id}")
+          if cached_data
+            tournament = Tournament.find_by(id: cached_data[:tournament_id])
+            if tournament
+              golfer_data = cached_data[:golfer_data]
+              golfer = tournament.golfers.create!(
+                name: golfer_data["name"],
+                email: golfer_data["email"],
+                phone: golfer_data["phone"],
+                mobile: golfer_data["mobile"].presence,
+                company: golfer_data["company"].presence,
+                address: golfer_data["address"].presence,
+                payment_type: "stripe",
+                payment_status: "unpaid",
+                waiver_accepted_at: Time.current,
+                stripe_checkout_session_id: session_id
+              )
+              Rails.cache.delete("test_embedded_#{session_id}")
+            end
+          end
+        end
 
         unless golfer
           render json: { error: "Golfer not found for this test session" }, status: :not_found
