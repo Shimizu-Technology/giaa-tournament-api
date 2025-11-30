@@ -9,6 +9,10 @@ class ActivityLog < ApplicationRecord
     golfer_deleted
     golfer_checked_in
     golfer_unchecked
+    golfer_promoted
+    golfer_demoted
+    golfer_cancelled
+    golfer_refunded
     payment_marked
     payment_updated
     group_created
@@ -22,8 +26,6 @@ class ActivityLog < ApplicationRecord
     tournament_created
     tournament_updated
     tournament_archived
-    golfer_promoted
-    golfer_demoted
   ].freeze
 
   validates :action, presence: true, inclusion: { in: ACTIONS }
