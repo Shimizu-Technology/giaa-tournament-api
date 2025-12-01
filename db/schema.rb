@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_30_135458) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_30_235027) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -41,14 +41,30 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_30_135458) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "employee_numbers", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "employee_name"
+    t.string "employee_number", null: false
+    t.bigint "tournament_id", null: false
+    t.datetime "updated_at", null: false
+    t.boolean "used", default: false, null: false
+    t.bigint "used_by_golfer_id"
+    t.index ["tournament_id", "employee_number"], name: "index_employee_numbers_on_tournament_id_and_employee_number", unique: true
+    t.index ["tournament_id"], name: "index_employee_numbers_on_tournament_id"
+    t.index ["used_by_golfer_id"], name: "index_employee_numbers_on_used_by_golfer_id"
+  end
+
   create_table "golfers", force: :cascade do |t|
     t.string "address"
     t.datetime "checked_in_at"
     t.string "company"
     t.datetime "created_at", null: false
     t.string "email"
+    t.string "employee_number"
+    t.bigint "employee_number_record_id"
     t.bigint "group_id"
     t.integer "hole_number"
+    t.boolean "is_employee", default: false, null: false
     t.string "mobile"
     t.string "name"
     t.text "notes"
@@ -73,6 +89,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_30_135458) do
     t.bigint "tournament_id", null: false
     t.datetime "updated_at", null: false
     t.datetime "waiver_accepted_at"
+    t.index ["employee_number_record_id"], name: "index_golfers_on_employee_number_record_id"
     t.index ["group_id"], name: "index_golfers_on_group_id"
     t.index ["stripe_checkout_session_id"], name: "index_golfers_on_stripe_checkout_session_id", unique: true, where: "(stripe_checkout_session_id IS NOT NULL)"
     t.index ["stripe_refund_id"], name: "index_golfers_on_stripe_refund_id", unique: true, where: "(stripe_refund_id IS NOT NULL)"
@@ -122,6 +139,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_30_135458) do
     t.string "contact_phone"
     t.datetime "created_at", null: false
     t.string "edition"
+    t.integer "employee_entry_fee", default: 5000
     t.integer "entry_fee", default: 12500
     t.string "event_date"
     t.string "fee_includes"
@@ -132,6 +150,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_30_135458) do
     t.string "name", null: false
     t.boolean "registration_open", default: false, null: false
     t.string "registration_time"
+    t.integer "reserved_slots", default: 0, null: false
     t.string "start_time"
     t.string "status", default: "draft", null: false
     t.datetime "updated_at", null: false
@@ -143,7 +162,10 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_30_135458) do
 
   add_foreign_key "activity_logs", "admins"
   add_foreign_key "activity_logs", "tournaments"
+  add_foreign_key "employee_numbers", "golfers", column: "used_by_golfer_id"
+  add_foreign_key "employee_numbers", "tournaments"
   add_foreign_key "golfers", "admins", column: "refunded_by_id", on_delete: :nullify
+  add_foreign_key "golfers", "employee_numbers", column: "employee_number_record_id"
   add_foreign_key "golfers", "groups"
   add_foreign_key "golfers", "tournaments"
   add_foreign_key "groups", "tournaments"

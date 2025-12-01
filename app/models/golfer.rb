@@ -2,6 +2,7 @@ class Golfer < ApplicationRecord
   belongs_to :tournament
   belongs_to :group, optional: true
   belongs_to :refunded_by, class_name: "Admin", optional: true
+  belongs_to :employee_number_record, class_name: "EmployeeNumber", optional: true
 
   # Validations
   validates :name, presence: true
@@ -199,7 +200,9 @@ class Golfer < ApplicationRecord
     return if registration_status.present?
     return unless tournament
 
-    if tournament.at_capacity?
+    # Use public capacity for automatic status assignment
+    # Admin-added golfers using reserved slots can have status manually set
+    if tournament.public_at_capacity?
       self.registration_status = "waitlist"
     else
       self.registration_status = "confirmed"

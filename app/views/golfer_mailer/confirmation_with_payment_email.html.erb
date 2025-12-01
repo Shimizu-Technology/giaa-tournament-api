@@ -55,6 +55,11 @@
                   <td style="padding: 20px; text-align: center;">
                     <p style="margin: 0 0 5px 0; color: #065f46; font-size: 14px;">Amount Paid</p>
                     <p style="margin: 0; color: #065f46; font-size: 28px; font-weight: bold;">$<%= sprintf('%.2f', @entry_fee) %></p>
+                    <% if @is_employee %>
+                      <p style="margin: 8px 0 0 0; color: #065f46; font-size: 12px;">
+                        <span style="background-color: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 8px; font-size: 11px;">👤 Employee Rate</span>
+                      </p>
+                    <% end %>
                     <% if @golfer.stripe_card_brand.present? && @golfer.stripe_card_last4.present? %>
                       <p style="margin: 8px 0 0 0; color: #065f46; font-size: 12px;">
                         <%= @golfer.stripe_card_brand.capitalize %> •••• <%= @golfer.stripe_card_last4 %>

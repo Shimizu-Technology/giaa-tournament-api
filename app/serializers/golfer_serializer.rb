@@ -4,7 +4,9 @@ class GolferSerializer < ActiveModel::Serializer
              :checked_in_at, :registration_status, :group_id, :hole_number,
              :position, :notes, :payment_method, :receipt_number, :payment_notes,
              :created_at, :updated_at, :group_position_label, :checked_in, :waiver_signed,
-             # New refund/payment detail fields
+             # Employee fields
+             :is_employee, :employee_number,
+             # Refund/payment detail fields
              :stripe_card_brand, :stripe_card_last4, :payment_amount_cents,
              :stripe_refund_id, :refund_amount_cents, :refund_reason, :refunded_at,
              :refunded_by_name, :can_refund, :can_cancel, :cancelled, :refunded,

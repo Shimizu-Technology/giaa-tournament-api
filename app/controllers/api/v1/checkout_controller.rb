@@ -103,9 +103,26 @@ module Api
           return
         end
 
+        # Handle employee discount
+        is_employee = false
+        employee_number = nil
+        if params[:employee_number].present?
+          validation = tournament.validate_employee_number(params[:employee_number])
+          unless validation[:valid]
+            render json: { error: validation[:error] }, status: :unprocessable_entity
+            return
+          end
+          is_employee = true
+          employee_number = params[:employee_number]
+        end
+
+        # Determine entry fee based on employee status
+        entry_fee = is_employee ? (tournament.employee_entry_fee || 5000) : (tournament.entry_fee || 12500)
+        fee_description = is_employee ? "Employee Rate" : "Standard Rate"
+
         # TEST MODE: Return a simulated embedded session
         if setting.test_mode?
-          return handle_test_mode_embedded(golfer_data, tournament)
+          return handle_test_mode_embedded(golfer_data, tournament, is_employee, employee_number)
         end
 
         # PRODUCTION MODE: Real Stripe embedded checkout
@@ -116,7 +133,6 @@ module Api
 
         Stripe.api_key = setting.stripe_secret_key
         frontend_url = ENV.fetch("FRONTEND_URL", "http://localhost:5173")
-        entry_fee = tournament.entry_fee || 12500
 
         begin
           # Create a Stripe Checkout Session for embedded checkout
@@ -128,7 +144,7 @@ module Api
                 currency: "usd",
                 product_data: {
                   name: "#{tournament.name} Entry Fee",
-                  description: "Golf Tournament Registration - #{golfer_data[:name]}",
+                  description: "Golf Tournament Registration - #{golfer_data[:name]} (#{fee_description})",
                 },
                 unit_amount: entry_fee,
               },
@@ -148,6 +164,8 @@ module Api
               golfer_address: golfer_data[:address] || "",
               waiver_accepted: "true",
               payment_type: "stripe",
+              is_employee: is_employee.to_s,
+              employee_number: employee_number || "",
             },
             billing_address_collection: "required",
           })
@@ -156,6 +174,8 @@ module Api
             client_secret: session.client_secret,
             session_id: session.id,
             test_mode: false,
+            is_employee: is_employee,
+            entry_fee: entry_fee,
           }
         rescue Stripe::StripeError => e
           Rails.logger.error("Stripe embedded checkout error: #{e.message}")
@@ -320,6 +340,7 @@ module Api
       private
 
       # Create a golfer from Stripe session metadata (for embedded checkout flow)
+      # Uses database locking to prevent race conditions
       def create_golfer_from_session(session)
         metadata = session.metadata
         return nil unless metadata.tournament_id.present? && metadata.golfer_email.present?
@@ -327,25 +348,61 @@ module Api
         tournament = Tournament.find_by(id: metadata.tournament_id)
         return nil unless tournament
 
-        # Check if golfer already exists (race condition protection)
-        existing = tournament.golfers.find_by(email: metadata.golfer_email)
-        return existing if existing
+        golfer = nil
+        
+        ActiveRecord::Base.transaction do
+          # Lock tournament to prevent race conditions on capacity
+          tournament.lock!
+          
+          # Check if golfer already exists with lock (race condition protection)
+          existing = tournament.golfers.lock.find_by(email: metadata.golfer_email)
+          if existing
+            golfer = existing
+            raise ActiveRecord::Rollback
+          end
 
-        # Create the golfer
-        golfer = tournament.golfers.create!(
-          name: metadata.golfer_name,
-          email: metadata.golfer_email,
-          phone: metadata.golfer_phone,
-          mobile: metadata.golfer_mobile.presence,
-          company: metadata.golfer_company.presence,
-          address: metadata.golfer_address.presence,
-          payment_type: "stripe",
-          payment_status: "unpaid", # Will be updated to paid right after
-          waiver_accepted_at: Time.current,
-          stripe_checkout_session_id: session.id
-        )
+          # Handle employee fields from metadata
+          is_employee = metadata.is_employee == "true"
+          employee_number = metadata.employee_number.presence
 
-        Rails.logger.info("Created golfer #{golfer.id} from embedded checkout session #{session.id}")
+          # Validate and get employee number record with lock
+          employee_number_record = nil
+          if is_employee && employee_number
+            emp_record = tournament.employee_numbers.lock.find_by(employee_number: employee_number)
+            if emp_record && !emp_record.used?
+              employee_number_record = emp_record
+            else
+              # Employee number invalid or already used - still create golfer but without employee discount
+              # (They already paid, so we honor the transaction but log the issue)
+              Rails.logger.warn("Employee number #{employee_number} was invalid or already used during confirm")
+              is_employee = false
+              employee_number = nil
+            end
+          end
+
+          # Create the golfer
+          golfer = tournament.golfers.create!(
+            name: metadata.golfer_name,
+            email: metadata.golfer_email,
+            phone: metadata.golfer_phone,
+            mobile: metadata.golfer_mobile.presence,
+            company: metadata.golfer_company.presence,
+            address: metadata.golfer_address.presence,
+            payment_type: "stripe",
+            payment_status: "unpaid", # Will be updated to paid right after
+            waiver_accepted_at: Time.current,
+            stripe_checkout_session_id: session.id,
+            is_employee: is_employee,
+            employee_number: employee_number,
+            employee_number_record: employee_number_record
+          )
+
+          # Mark employee number as used (within same transaction)
+          employee_number_record&.mark_used!(golfer)
+
+          Rails.logger.info("Created golfer #{golfer.id} from embedded checkout session #{session.id}")
+        end
+
         golfer
       rescue ActiveRecord::RecordInvalid => e
         Rails.logger.error("Failed to create golfer from session: #{e.message}")
@@ -353,8 +410,9 @@ module Api
       end
 
       # Handle embedded checkout in test mode
-      def handle_test_mode_embedded(golfer_data, tournament)
+      def handle_test_mode_embedded(golfer_data, tournament, is_employee = false, employee_number = nil)
         test_session_id = "test_embedded_#{SecureRandom.hex(16)}"
+        entry_fee = is_employee ? (tournament.employee_entry_fee || 5000) : (tournament.entry_fee || 12500)
         
         # Store the golfer data temporarily (we'll create on confirm)
         Rails.cache.write(
@@ -362,6 +420,8 @@ module Api
           {
             tournament_id: tournament.id,
             golfer_data: golfer_data.to_unsafe_h,
+            is_employee: is_employee,
+            employee_number: employee_number,
           },
           expires_in: 1.hour
         )
@@ -370,6 +430,8 @@ module Api
           client_secret: "test_secret_#{test_session_id}",
           session_id: test_session_id,
           test_mode: true,
+          is_employee: is_employee,
+          entry_fee: entry_fee,
         }
       end
 
@@ -404,6 +466,16 @@ module Api
             tournament = Tournament.find_by(id: cached_data[:tournament_id])
             if tournament
               golfer_data = cached_data[:golfer_data]
+              is_employee = cached_data[:is_employee] || false
+              employee_number = cached_data[:employee_number]
+
+              # Validate and get employee number record if applicable
+              employee_number_record = nil
+              if is_employee && employee_number.present?
+                validation = tournament.validate_employee_number(employee_number)
+                employee_number_record = validation[:employee_number_record] if validation[:valid]
+              end
+
               golfer = tournament.golfers.create!(
                 name: golfer_data["name"],
                 email: golfer_data["email"],
@@ -414,8 +486,15 @@ module Api
                 payment_type: "stripe",
                 payment_status: "unpaid",
                 waiver_accepted_at: Time.current,
-                stripe_checkout_session_id: session_id
+                stripe_checkout_session_id: session_id,
+                is_employee: is_employee,
+                employee_number: employee_number,
+                employee_number_record: employee_number_record
               )
+
+              # Mark employee number as used
+              employee_number_record&.mark_used!(golfer)
+
               Rails.cache.delete("test_embedded_#{session_id}")
             end
           end

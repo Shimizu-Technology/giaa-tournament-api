@@ -8,7 +8,8 @@ class GolferMailer < ApplicationMailer
     @is_confirmed = @status == "confirmed"
     @setting = Setting.instance
     @tournament = golfer.tournament
-    @entry_fee = @tournament&.entry_fee.to_f / 100
+    @is_employee = golfer.is_employee
+    @entry_fee = calculate_entry_fee(golfer)
 
     subject = @is_confirmed ?
       "Your Golf Tournament Registration is Confirmed!" :
@@ -22,7 +23,8 @@ class GolferMailer < ApplicationMailer
     @golfer = golfer
     @setting = Setting.instance
     @tournament = golfer.tournament
-    @entry_fee = @tournament&.entry_fee.to_f / 100
+    @is_employee = golfer.is_employee
+    @entry_fee = calculate_entry_fee(golfer)
 
     mail(
       to: golfer.email,
@@ -37,7 +39,9 @@ class GolferMailer < ApplicationMailer
     @is_confirmed = @status == "confirmed"
     @setting = Setting.instance
     @tournament = golfer.tournament
-    @entry_fee = (golfer.payment_amount_cents || @tournament&.entry_fee || 12500).to_f / 100
+    @is_employee = golfer.is_employee
+    # For Stripe payments, use the actual amount paid
+    @entry_fee = (golfer.payment_amount_cents || calculate_entry_fee_cents(golfer)).to_f / 100
 
     subject = @is_confirmed ?
       "Registration Confirmed & Payment Received!" :
@@ -51,7 +55,8 @@ class GolferMailer < ApplicationMailer
     @golfer = golfer
     @setting = Setting.instance
     @tournament = golfer.tournament
-    @entry_fee = @tournament&.entry_fee.to_f / 100
+    @is_employee = golfer.is_employee
+    @entry_fee = calculate_entry_fee(golfer)
 
     mail(
       to: golfer.email,
@@ -82,5 +87,21 @@ class GolferMailer < ApplicationMailer
       to: golfer.email,
       subject: "Registration Cancelled - Golf Tournament"
     )
+  end
+
+  private
+
+  # Calculate entry fee based on employee status
+  def calculate_entry_fee(golfer)
+    calculate_entry_fee_cents(golfer).to_f / 100
+  end
+
+  def calculate_entry_fee_cents(golfer)
+    tournament = golfer.tournament
+    if golfer.is_employee
+      tournament&.employee_entry_fee || 5000
+    else
+      tournament&.entry_fee || 12500
+    end
   end
 end

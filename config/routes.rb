@@ -72,6 +72,17 @@ Rails.application.routes.draw do
         end
       end
 
+      # Employee Numbers
+      resources :employee_numbers, only: [:index, :create, :update, :destroy] do
+        member do
+          post :release
+        end
+        collection do
+          post :bulk_create
+          post :validate  # Public endpoint for registration form
+        end
+      end
+
       # Checkout
       post "checkout" => "checkout#create"
       post "checkout/embedded" => "checkout#create_embedded"

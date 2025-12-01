@@ -61,6 +61,7 @@ module Api
 
       # POST /api/v1/golfers
       # Public registration endpoint
+      # Uses database locking to prevent race conditions
       def create
         # Find the current open tournament
         tournament = Tournament.current
@@ -70,26 +71,78 @@ module Api
           return
         end
 
-        unless tournament.can_register?
-          render json: { errors: ["Registration is currently closed."] }, status: :unprocessable_entity
-          return
+        # Wrap in transaction with row locking to prevent race conditions
+        result = nil
+        error_response = nil
+
+        ActiveRecord::Base.transaction do
+          # Lock the tournament row to prevent concurrent capacity checks
+          tournament.lock!
+          
+          # Re-check registration status after acquiring lock
+          unless tournament.can_register?
+            error_response = { errors: ["Registration is currently closed."], status: :unprocessable_entity }
+            raise ActiveRecord::Rollback
+          end
+
+          # Handle employee registration with lock
+          employee_number_record = nil
+          if params[:employee_number].present?
+            # Lock the employee number record to prevent double-use
+            emp_record = tournament.employee_numbers.lock.find_by(employee_number: params[:employee_number])
+            
+            unless emp_record
+              error_response = { errors: ["Invalid employee number"], status: :unprocessable_entity }
+              raise ActiveRecord::Rollback
+            end
+            
+            if emp_record.used?
+              error_response = { errors: ["This employee number has already been used"], status: :unprocessable_entity }
+              raise ActiveRecord::Rollback
+            end
+            
+            employee_number_record = emp_record
+          end
+
+          golfer = tournament.golfers.new(golfer_params)
+          golfer.waiver_accepted_at = Time.current if params[:waiver_accepted]
+
+          # Set employee fields if valid employee number provided
+          if employee_number_record
+            golfer.is_employee = true
+            golfer.employee_number = params[:employee_number]
+            golfer.employee_number_record = employee_number_record
+          end
+
+          if golfer.save
+            # Mark employee number as used (within same transaction)
+            employee_number_record&.mark_used!(golfer)
+
+            result = {
+              golfer: golfer,
+              message: golfer.registration_status == "confirmed" ?
+                "Your spot is confirmed!" :
+                "You have been added to the waitlist.",
+              employee_discount_applied: golfer.is_employee
+            }
+          else
+            error_response = { errors: golfer.errors.full_messages, status: :unprocessable_entity }
+            raise ActiveRecord::Rollback
+          end
         end
 
-        golfer = tournament.golfers.new(golfer_params)
-        golfer.waiver_accepted_at = Time.current if params[:waiver_accepted]
-
-        if golfer.save
-          # Broadcast to admin dashboard
-          broadcast_golfer_update(golfer)
+        # Handle response outside of transaction
+        if error_response
+          render json: { errors: error_response[:errors] }, status: error_response[:status]
+        elsif result
+          # Broadcast after transaction commits (non-critical)
+          broadcast_golfer_update(result[:golfer])
 
           render json: {
-            golfer: GolferSerializer.new(golfer),
-            message: golfer.registration_status == "confirmed" ?
-              "Your spot is confirmed!" :
-              "You have been added to the waitlist."
+            golfer: GolferSerializer.new(result[:golfer]),
+            message: result[:message],
+            employee_discount_applied: result[:employee_discount_applied]
           }, status: :created
-        else
-          render json: { errors: golfer.errors.full_messages }, status: :unprocessable_entity
         end
       end
 
@@ -148,12 +201,32 @@ module Api
         end
 
         reason = params[:reason]
+        old_group = golfer.group
         
-        # CRITICAL: Cancel the golfer first
+        # CRITICAL: Remove from group first (cancelled golfers shouldn't hold spots)
+        if old_group.present?
+          golfer.update!(group_id: nil)
+        end
+        
+        # CRITICAL: Cancel the golfer
         golfer.cancel!(admin: current_admin, reason: reason)
 
         # CRITICAL: Return success response FIRST before non-critical operations
         render json: golfer
+        
+        # NON-CRITICAL: Log group removal
+        if old_group.present?
+          begin
+            ActivityLog.log(
+              admin: current_admin,
+              action: 'golfer_removed_from_group',
+              target: golfer,
+              details: "Removed #{golfer.name} from Group #{old_group.group_number} (cancelled)"
+            )
+          rescue StandardError => e
+            Rails.logger.error("Failed to log group removal: #{e.message}")
+          end
+        end
 
         # NON-CRITICAL: Send cancellation email (wrapped in rescue)
         begin
@@ -198,9 +271,15 @@ module Api
         end
 
         reason = params[:reason]
+        old_group = golfer.group
 
         begin
-          # CRITICAL: Process the refund through Stripe first
+          # CRITICAL: Remove from group first (refunded golfers shouldn't hold spots)
+          if old_group.present?
+            golfer.update!(group_id: nil)
+          end
+          
+          # CRITICAL: Process the refund through Stripe
           stripe_refund = golfer.process_refund!(admin: current_admin, reason: reason)
 
           # CRITICAL: Return success response FIRST before non-critical operations
@@ -215,6 +294,20 @@ module Api
             },
             message: "Refund processed successfully"
           }
+
+          # NON-CRITICAL: Log group removal if applicable
+          if old_group.present?
+            begin
+              ActivityLog.log(
+                admin: current_admin,
+                action: 'golfer_removed_from_group',
+                target: golfer,
+                details: "Removed #{golfer.name} from Group #{old_group.group_number} (refunded)"
+              )
+            rescue StandardError => e
+              Rails.logger.error("Failed to log group removal: #{e.message}")
+            end
+          end
 
           # NON-CRITICAL: Log activity (wrapped in rescue)
           begin
@@ -264,8 +357,14 @@ module Api
 
         reason = params[:reason]
         refund_amount = params[:refund_amount_cents] || golfer.payment_amount_cents || golfer.tournament&.entry_fee
+        old_group = golfer.group
 
-        # CRITICAL: Update the golfer record first
+        # CRITICAL: Remove from group first (refunded golfers shouldn't hold spots)
+        if old_group.present?
+          golfer.update!(group_id: nil)
+        end
+
+        # CRITICAL: Update the golfer record
         golfer.update!(
           registration_status: "cancelled",
           payment_status: "refunded",
@@ -277,6 +376,20 @@ module Api
 
         # CRITICAL: Return success response FIRST
         render json: golfer
+        
+        # NON-CRITICAL: Log group removal if applicable
+        if old_group.present?
+          begin
+            ActivityLog.log(
+              admin: current_admin,
+              action: 'golfer_removed_from_group',
+              target: golfer,
+              details: "Removed #{golfer.name} from Group #{old_group.group_number} (refunded)"
+            )
+          rescue StandardError => e
+            Rails.logger.error("Failed to log group removal: #{e.message}")
+          end
+        end
 
         # NON-CRITICAL: Send refund notification email
         begin
@@ -381,6 +494,19 @@ module Api
           return
         end
 
+        old_group = golfer.group
+        
+        # Remove from group (waitlist golfers shouldn't hold group spots)
+        if old_group.present?
+          golfer.update!(group_id: nil)
+          ActivityLog.log(
+            admin: current_admin,
+            action: 'golfer_removed_from_group',
+            target: golfer,
+            details: "Removed #{golfer.name} from Group #{old_group.group_number} (demoted to waitlist)"
+          )
+        end
+
         golfer.update!(registration_status: "waitlist")
 
         ActivityLog.log(
@@ -441,14 +567,24 @@ module Api
         if tournament
           render json: {
             tournament_id: tournament.id,
+            # Total capacity (for admin reference)
             max_capacity: tournament.max_capacity,
             confirmed_count: tournament.confirmed_count,
             waitlist_count: tournament.waitlist_count,
             capacity_remaining: tournament.capacity_remaining,
             at_capacity: tournament.at_capacity?,
+            # Public-facing capacity (excludes reserved slots)
+            reserved_slots: tournament.reserved_slots,
+            public_capacity: tournament.public_capacity,
+            public_capacity_remaining: tournament.public_capacity_remaining,
+            public_at_capacity: tournament.public_at_capacity?,
             registration_open: tournament.can_register?,
             entry_fee_cents: tournament.entry_fee || 12500,
             entry_fee_dollars: tournament.entry_fee_dollars,
+            # Employee discount info
+            employee_entry_fee_cents: tournament.employee_entry_fee || 5000,
+            employee_entry_fee_dollars: tournament.employee_entry_fee_dollars,
+            employee_discount_available: tournament.employee_numbers.available.any?,
             # Tournament configuration for landing page
             tournament_year: tournament.year,
             tournament_edition: tournament.edition,
@@ -482,23 +618,31 @@ module Api
         tournament = find_tournament
         return render_tournament_required unless tournament
 
+        # Exclude cancelled golfers from active counts
+        active_golfers = tournament.golfers.where.not(registration_status: 'cancelled')
+        
         render json: {
           tournament_id: tournament.id,
           tournament_name: tournament.name,
-          total: tournament.golfers.count,
+          total: active_golfers.count,
           confirmed: tournament.confirmed_count,
           waitlist: tournament.waitlist_count,
-          paid: tournament.paid_count,
-          unpaid: tournament.golfers.unpaid.count,
-          checked_in: tournament.checked_in_count,
-          not_checked_in: tournament.golfers.not_checked_in.count,
-          assigned_to_groups: tournament.golfers.assigned.count,
-          unassigned: tournament.golfers.unassigned.count,
+          cancelled: tournament.golfers.where(registration_status: 'cancelled').count,
+          paid: active_golfers.where(payment_status: 'paid').count,
+          unpaid: active_golfers.where.not(payment_status: 'paid').count,
+          checked_in: active_golfers.where.not(checked_in_at: nil).count,
+          not_checked_in: active_golfers.where(checked_in_at: nil).count,
+          assigned_to_groups: active_golfers.where.not(group_id: nil).count,
+          unassigned: active_golfers.where(group_id: nil).count,
           max_capacity: tournament.max_capacity,
+          reserved_slots: tournament.reserved_slots,
+          public_capacity: tournament.public_capacity,
           capacity_remaining: tournament.capacity_remaining,
           at_capacity: tournament.at_capacity?,
           entry_fee_cents: tournament.entry_fee || 12500,
-          entry_fee_dollars: tournament.entry_fee_dollars
+          entry_fee_dollars: tournament.entry_fee_dollars,
+          employee_entry_fee_cents: tournament.employee_entry_fee || 5000,
+          employee_entry_fee_dollars: tournament.employee_entry_fee_dollars
         }
       end
 

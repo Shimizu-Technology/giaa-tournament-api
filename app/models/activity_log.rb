@@ -26,6 +26,11 @@ class ActivityLog < ApplicationRecord
     tournament_created
     tournament_updated
     tournament_archived
+    employee_number_created
+    employee_numbers_bulk_created
+    employee_number_updated
+    employee_number_deleted
+    employee_number_released
   ].freeze
 
   validates :action, presence: true, inclusion: { in: ACTIONS }

@@ -6,15 +6,17 @@ class AdminMailer < ApplicationMailer
     @golfer = golfer
     @setting = Setting.instance
     @tournament = golfer.tournament
-    @entry_fee = (@tournament&.entry_fee || 12500).to_f / 100
+    @is_employee = golfer.is_employee
+    @entry_fee = calculate_entry_fee(golfer)
     admin_email = @setting.admin_email
 
     return unless admin_email.present?
 
-    mail(
-      to: admin_email,
-      subject: "New Golf Tournament Registration: #{golfer.name}"
-    )
+    subject = @is_employee ? 
+      "New Employee Registration: #{golfer.name}" :
+      "New Golf Tournament Registration: #{golfer.name}"
+
+    mail(to: admin_email, subject: subject)
   end
 
   # Notify admin of payment received (for manual payments marked by admin - rarely used)
@@ -22,7 +24,8 @@ class AdminMailer < ApplicationMailer
     @golfer = golfer
     @setting = Setting.instance
     @tournament = golfer.tournament
-    @entry_fee = (@tournament&.entry_fee || 12500).to_f / 100
+    @is_employee = golfer.is_employee
+    @entry_fee = calculate_entry_fee(golfer)
     admin_email = @setting.admin_email
 
     return unless admin_email.present?
@@ -38,15 +41,32 @@ class AdminMailer < ApplicationMailer
     @golfer = golfer
     @setting = Setting.instance
     @tournament = golfer.tournament
-    @entry_fee = (@golfer.payment_amount_cents || @tournament&.entry_fee || 12500).to_f / 100
+    @is_employee = golfer.is_employee
+    @entry_fee = (@golfer.payment_amount_cents || calculate_entry_fee_cents(golfer)).to_f / 100
     admin_email = @setting.admin_email
 
     return unless admin_email.present?
 
-    mail(
-      to: admin_email,
-      subject: "New Registration & Payment: #{golfer.name}"
-    )
+    subject = @is_employee ?
+      "New Employee Registration & Payment: #{golfer.name}" :
+      "New Registration & Payment: #{golfer.name}"
+
+    mail(to: admin_email, subject: subject)
+  end
+
+  private
+
+  def calculate_entry_fee(golfer)
+    calculate_entry_fee_cents(golfer).to_f / 100
+  end
+
+  def calculate_entry_fee_cents(golfer)
+    tournament = golfer.tournament
+    if golfer.is_employee
+      tournament&.employee_entry_fee || 5000
+    else
+      tournament&.entry_fee || 12500
+    end
   end
 end
 

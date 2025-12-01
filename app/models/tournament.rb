@@ -3,6 +3,7 @@ class Tournament < ApplicationRecord
   has_many :golfers, dependent: :restrict_with_error
   has_many :groups, dependent: :restrict_with_error
   has_many :activity_logs, dependent: :nullify
+  has_many :employee_numbers, dependent: :destroy
 
   # Validations
   validates :name, presence: true
@@ -10,6 +11,7 @@ class Tournament < ApplicationRecord
   validates :status, presence: true, inclusion: { in: %w[draft open closed archived] }
   validates :max_capacity, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
   validates :entry_fee, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
+  validates :employee_entry_fee, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
 
   # Scopes
   scope :active, -> { where.not(status: 'archived') }
@@ -53,6 +55,23 @@ class Tournament < ApplicationRecord
     entry_fee / 100.0
   end
 
+  def employee_entry_fee_dollars
+    return 50.00 if employee_entry_fee.nil?
+    employee_entry_fee / 100.0
+  end
+
+  # Check if an employee number is valid and available
+  def validate_employee_number(number)
+    return { valid: false, error: "Employee number is required" } if number.blank?
+    
+    emp_record = employee_numbers.find_by(employee_number: number)
+    
+    return { valid: false, error: "Invalid employee number" } unless emp_record
+    return { valid: false, error: "This employee number has already been used" } if emp_record.used?
+    
+    { valid: true, employee_number_record: emp_record }
+  end
+
   def confirmed_count
     golfers.confirmed.count
   end
@@ -61,12 +80,34 @@ class Tournament < ApplicationRecord
     golfers.waitlist.count
   end
 
+  # Total capacity remaining (for admin view)
   def capacity_remaining
     return max_capacity if max_capacity.nil?
     remaining = max_capacity - confirmed_count
     remaining.negative? ? 0 : remaining
   end
 
+  # Public-facing capacity (excludes reserved slots)
+  def public_capacity
+    return max_capacity if max_capacity.nil?
+    public_cap = max_capacity - (reserved_slots || 0)
+    public_cap.negative? ? 0 : public_cap
+  end
+
+  # Spots remaining for public registration
+  def public_capacity_remaining
+    return public_capacity if public_capacity.nil?
+    remaining = public_capacity - confirmed_count
+    remaining.negative? ? 0 : remaining
+  end
+
+  # Is public registration at capacity?
+  def public_at_capacity?
+    return false if max_capacity.nil?
+    confirmed_count >= public_capacity
+  end
+
+  # Is total capacity reached (including reserved)?
   def at_capacity?
     return false if max_capacity.nil?
     confirmed_count >= max_capacity
@@ -106,7 +147,9 @@ class Tournament < ApplicationRecord
       location_name: location_name,
       location_address: location_address,
       max_capacity: max_capacity,
+      reserved_slots: reserved_slots,
       entry_fee: entry_fee,
+      employee_entry_fee: employee_entry_fee,
       format_name: format_name,
       fee_includes: fee_includes,
       checks_payable_to: checks_payable_to,

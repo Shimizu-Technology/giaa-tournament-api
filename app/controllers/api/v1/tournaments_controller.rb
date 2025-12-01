@@ -160,7 +160,7 @@ module Api
           :name, :year, :edition, :status,
           :event_date, :registration_time, :start_time,
           :location_name, :location_address,
-          :max_capacity, :entry_fee,
+          :max_capacity, :reserved_slots, :entry_fee, :employee_entry_fee,
           :format_name, :fee_includes, :checks_payable_to,
           :contact_name, :contact_phone,
           :registration_open

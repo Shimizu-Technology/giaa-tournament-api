@@ -122,6 +122,17 @@ module Api
           render json: { error: "Group is full (max #{Group::MAX_GOLFERS} golfers)" }, status: :unprocessable_entity
           return
         end
+        
+        # Prevent adding cancelled or waitlist golfers to groups
+        if golfer.registration_status == "cancelled"
+          render json: { error: "Cannot add cancelled golfer to a group" }, status: :unprocessable_entity
+          return
+        end
+        
+        if golfer.registration_status == "waitlist"
+          render json: { error: "Cannot add waitlist golfer to a group. Promote them to confirmed first." }, status: :unprocessable_entity
+          return
+        end
 
         if group.add_golfer(golfer)
           ActivityLog.log(
