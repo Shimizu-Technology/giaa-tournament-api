@@ -28,4 +28,15 @@ class Setting < ApplicationRecord
   def production_mode?
     payment_mode == 'production'
   end
+
+  # Get admin emails as an array (supports comma-separated values)
+  def admin_emails
+    return [] unless admin_email.present?
+    admin_email.split(',').map(&:strip).reject(&:blank?)
+  end
+
+  # Check if there are any admin emails configured
+  def admin_emails?
+    admin_emails.any?
+  end
 end
