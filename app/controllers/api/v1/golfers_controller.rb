@@ -149,7 +149,7 @@ module Api
       # PATCH /api/v1/golfers/:id
       def update
         golfer = Golfer.find(params[:id])
-        old_values = golfer.attributes.slice('group_id', 'payment_status', 'registration_status')
+        old_values = golfer.attributes.slice('group_id', 'payment_status', 'registration_status', 'name', 'email', 'phone', 'company', 'address')
 
         if golfer.update(golfer_update_params)
           # Log activity for meaningful changes
@@ -521,6 +521,45 @@ module Api
         render json: golfer
       end
 
+      # POST /api/v1/golfers/:id/send_payment_link
+      # Generate and send payment link to golfer
+      def send_payment_link
+        golfer = Golfer.find(params[:id])
+
+        unless golfer.can_send_payment_link?
+          render json: { error: "Cannot send payment link to this golfer" }, status: :unprocessable_entity
+          return
+        end
+
+        # Check if this is the first time sending payment link (for admin notification)
+        first_time_sending = golfer.payment_token.blank?
+
+        # Generate token if not already present
+        golfer.generate_payment_token!
+
+        # Send the payment link email to golfer
+        GolferMailer.payment_link_email(golfer).deliver_later
+
+        # Notify admin only if this is the first time sending (not a resend)
+        if first_time_sending
+          AdminMailer.notify_new_registration_pending_payment(golfer).deliver_later(wait: 2.seconds)
+        end
+
+        ActivityLog.log(
+          admin: current_admin,
+          action: 'payment_link_sent',
+          target: golfer,
+          details: "Sent payment link to #{golfer.name}",
+          metadata: { email: golfer.email }
+        )
+
+        render json: {
+          success: true,
+          message: "Payment link sent to #{golfer.email}",
+          payment_link: golfer.payment_link_url
+        }
+      end
+
       # POST /api/v1/golfers/:id/update_payment_status
       # Change payment status (paid/unpaid)
       def update_payment_status
@@ -731,6 +770,31 @@ module Api
             metadata: {
               previous_status: old_values['payment_status'],
               new_status: golfer.payment_status
+            }
+          )
+        end
+
+        # Check for contact info changes
+        contact_fields = %w[name email phone company address]
+        changed_fields = contact_fields.select { |field| old_values[field] != golfer.send(field) }
+        
+        if changed_fields.any?
+          changes = changed_fields.map do |field|
+            old_val = old_values[field].presence || '(empty)'
+            new_val = golfer.send(field).presence || '(empty)'
+            "#{field}: #{old_val} → #{new_val}"
+          end
+          
+          ActivityLog.log(
+            admin: current_admin,
+            action: 'golfer_updated',
+            target: golfer,
+            details: "Updated #{golfer.name}'s details: #{changed_fields.join(', ')}",
+            metadata: {
+              changed_fields: changed_fields,
+              changes: changed_fields.each_with_object({}) { |f, h| 
+                h[f] = { from: old_values[f], to: golfer.send(f) } 
+              }
             }
           )
         end

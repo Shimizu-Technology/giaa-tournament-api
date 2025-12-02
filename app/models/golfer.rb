@@ -138,6 +138,31 @@ class Golfer < ApplicationRecord
     payment_type == "stripe" && payment_status == "paid" && stripe_payment_intent_id.present?
   end
 
+  # Generate a unique payment token for payment links
+  def generate_payment_token!
+    return payment_token if payment_token.present?
+    
+    loop do
+      token = SecureRandom.urlsafe_base64(24)
+      unless Golfer.exists?(payment_token: token)
+        update!(payment_token: token)
+        return token
+      end
+    end
+  end
+
+  # Get the payment link URL
+  def payment_link_url
+    return nil unless payment_token.present?
+    frontend_url = ENV.fetch("FRONTEND_URL", "http://localhost:5173")
+    "#{frontend_url}/pay/#{payment_token}"
+  end
+
+  # Check if payment link can be sent
+  def can_send_payment_link?
+    payment_status != "paid" && payment_status != "refunded" && registration_status != "cancelled"
+  end
+
   # Format payment details for display
   def formatted_payment_details
     return nil unless payment_status == "paid" || payment_status == "refunded"

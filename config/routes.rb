@@ -33,12 +33,17 @@ Rails.application.routes.draw do
           post :cancel
           post :refund
           post :mark_refunded
+          post :send_payment_link
         end
         collection do
           get :registration_status
           get :stats
         end
       end
+      
+      # Payment Links (public endpoints)
+      get "payment_links/:token" => "payment_links#show"
+      post "payment_links/:token/checkout" => "payment_links#create_checkout"
 
       # Groups
       resources :groups do

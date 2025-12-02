@@ -89,6 +89,21 @@ class GolferMailer < ApplicationMailer
     )
   end
 
+  # Send payment link email
+  def payment_link_email(golfer)
+    @golfer = golfer
+    @setting = Setting.instance
+    @tournament = golfer.tournament
+    @is_employee = golfer.is_employee
+    @entry_fee = calculate_entry_fee(golfer)
+    @payment_link = golfer.payment_link_url
+
+    mail(
+      to: golfer.email,
+      subject: "Complete Your Payment - #{@tournament&.name || 'Golf Tournament'}"
+    )
+  end
+
   private
 
   # Calculate entry fee based on employee status

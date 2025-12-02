@@ -6,6 +6,8 @@ class GolferSerializer < ActiveModel::Serializer
              :created_at, :updated_at, :group_position_label, :checked_in, :waiver_signed,
              # Employee fields
              :is_employee, :employee_number,
+             # Payment link
+             :payment_token,
              # Refund/payment detail fields
              :stripe_card_brand, :stripe_card_last4, :payment_amount_cents,
              :stripe_refund_id, :refund_amount_cents, :refund_reason, :refunded_at,

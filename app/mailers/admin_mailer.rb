@@ -54,6 +54,25 @@ class AdminMailer < ApplicationMailer
     mail(to: admin_emails, subject: subject)
   end
 
+  # Notify admin when a golfer is registered with a payment link pending
+  def notify_new_registration_pending_payment(golfer)
+    @golfer = golfer
+    @setting = Setting.instance
+    @tournament = golfer.tournament
+    @is_employee = golfer.is_employee
+    @entry_fee = calculate_entry_fee(golfer)
+    @payment_link = golfer.payment_link_url
+    admin_emails = @setting.admin_emails
+
+    return unless admin_emails.any?
+
+    subject = @is_employee ?
+      "New Employee Registration - Awaiting Payment: #{golfer.name}" :
+      "New Registration - Awaiting Payment: #{golfer.name}"
+
+    mail(to: admin_emails, subject: subject)
+  end
+
   private
 
   def calculate_entry_fee(golfer)

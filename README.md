@@ -68,10 +68,11 @@ Tournament statuses:
 |---------|-------------|
 | **Registration** | Public multi-step form with automatic waitlist |
 | **Stripe Payments** | Embedded checkout modal with card capture |
+| **Payment Links** | Admin sends payment link email, golfer pays via unique URL |
 | **Employee Discounts** | Admin-managed employee numbers for reduced rate |
 | **Reserved Slots** | Block capacity for sponsors/VIPs |
 | **Cancel/Refund** | Full refund processing with Stripe integration |
-| **Race Condition Protection** | Database row-locking prevents duplicate registrations |
+| **Race Condition Protection** | Database row-locking prevents duplicate payments |
 | **Auto Group Removal** | Cancelled/waitlisted golfers auto-removed from groups |
 | **Real-time Updates** | ActionCable broadcasts changes to admin dashboards |
 
@@ -99,6 +100,8 @@ Tournament statuses:
 | POST | `/api/v1/checkout/embedded` | Create Stripe embedded checkout session |
 | POST | `/api/v1/checkout/confirm` | Confirm payment and create golfer |
 | POST | `/api/v1/employee_numbers/validate` | Validate employee number |
+| GET | `/api/v1/payment_links/:token` | Get golfer info for payment link |
+| POST | `/api/v1/payment_links/:token/checkout` | Create checkout session for payment link |
 
 ### Protected (Clerk JWT Required)
 
@@ -126,6 +129,7 @@ Tournament statuses:
 | POST | `/api/v1/golfers/:id/cancel` | Cancel registration |
 | POST | `/api/v1/golfers/:id/refund` | Process Stripe refund |
 | POST | `/api/v1/golfers/:id/mark_refunded` | Mark as manually refunded |
+| POST | `/api/v1/golfers/:id/send_payment_link` | Send payment link email to golfer |
 
 #### Groups
 | Method | Endpoint | Description |

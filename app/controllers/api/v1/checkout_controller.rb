@@ -234,17 +234,24 @@ module Api
             return
           end
 
-          # Skip if already marked as paid (idempotency)
-          if golfer.payment_status == "paid" && golfer.stripe_payment_intent_id.present?
-            render json: {
-              success: true,
-              golfer: GolferSerializer.new(golfer),
-              message: "Payment already confirmed!"
-            }
-            return
-          end
+          # Use database-level locking to prevent race conditions from duplicate requests
+          should_send_emails = false
+          
+          ActiveRecord::Base.transaction do
+            # Lock the row to prevent concurrent updates
+            golfer.lock!
+            
+            # Skip if already marked as paid (idempotency check after lock)
+            if golfer.payment_status == "paid" && golfer.stripe_payment_intent_id.present?
+              render json: {
+                success: true,
+                golfer: GolferSerializer.new(golfer),
+                message: "Payment already confirmed!"
+              }
+              return
+            end
 
-          # Payment was successful - update golfer
+            # Payment was successful - update golfer
             # Get the payment intent ID for record keeping
             payment_intent_id = session.payment_intent
             payment_amount = session.amount_total
@@ -273,6 +280,7 @@ module Api
             # Update golfer payment status with all details
             golfer.update!(
               payment_status: "paid",
+              payment_type: "stripe",  # Update payment_type so can_refund? works correctly
               stripe_payment_intent_id: payment_intent_id,
               payment_method: "stripe",
               payment_amount_cents: payment_amount,
@@ -281,14 +289,29 @@ module Api
               payment_notes: "Paid via Stripe on #{formatted_time} (Guam Time)"
             )
 
-            # CRITICAL: Render success response FIRST before any non-critical operations
-            # This ensures the user sees success even if emails or broadcasts fail
-            render json: {
-              success: true,
-              golfer: GolferSerializer.new(golfer),
-              message: "Payment confirmed successfully!"
-            }
+            # Log the payment activity
+            ActivityLog.log(
+              admin: nil,  # No admin - self-service payment
+              action: 'payment_completed',
+              target: golfer,
+              details: "Payment of $#{format('%.2f', payment_amount / 100.0)} completed via Stripe#{golfer.is_employee ? ' (Employee Rate)' : ''}",
+              tournament: golfer.tournament
+            )
+            
+            # Mark that we should send emails (only the first request to complete will)
+            should_send_emails = true
+          end
 
+          # CRITICAL: Render success response FIRST before any non-critical operations
+          # This ensures the user sees success even if emails or broadcasts fail
+          render json: {
+            success: true,
+            golfer: GolferSerializer.new(golfer),
+            message: "Payment confirmed successfully!"
+          }
+
+          # Only send emails if this request actually processed the payment
+          if should_send_emails
             # Queue emails with staggered delays to avoid rate limiting
             # For Stripe payments, send combined emails (registration + payment in one)
             GolferMailer.confirmation_with_payment_email(golfer).deliver_later
@@ -304,6 +327,7 @@ module Api
               Rails.logger.error("Failed to broadcast payment confirmation: #{e.message}")
               # Don't raise - the payment was successful
             end
+          end
         rescue Stripe::StripeError => e
           Rails.logger.error("Stripe verification error: #{e.message}")
           render json: { error: "Unable to verify payment: #{e.message}" }, status: :unprocessable_entity
@@ -505,23 +529,46 @@ module Api
           return
         end
 
-        # Skip if already paid
-        if golfer.payment_status == "paid"
-          render json: {
-            success: true,
-            golfer: GolferSerializer.new(golfer),
-            message: "Payment already confirmed (test mode)"
-          }
-          return
-        end
+        # Calculate payment amount for logging
+        entry_fee = golfer.is_employee ? golfer.tournament.employee_entry_fee : golfer.tournament.entry_fee
+        emails_sent = false
 
-        # Mark as paid (simulated)
-        golfer.update!(
-          payment_status: "paid",
-          stripe_payment_intent_id: "test_pi_#{SecureRandom.hex(8)}",
-          payment_method: "stripe",
-          payment_notes: "SIMULATED PAYMENT (Test Mode) - #{Time.current.strftime('%Y-%m-%d %H:%M:%S')}"
-        )
+        # Use database transaction with row locking to prevent race conditions
+        ActiveRecord::Base.transaction do
+          # Lock the golfer row to prevent concurrent updates
+          golfer.lock!
+
+          # Skip if already paid AFTER acquiring lock
+          if golfer.payment_status == "paid"
+            render json: {
+              success: true,
+              golfer: GolferSerializer.new(golfer),
+              message: "Payment already confirmed (test mode)"
+            }
+            return
+          end
+
+          # Mark as paid (simulated)
+          golfer.update!(
+            payment_status: "paid",
+            payment_type: "stripe",
+            stripe_payment_intent_id: "test_pi_#{SecureRandom.hex(8)}",
+            payment_method: "stripe",
+            payment_amount_cents: entry_fee,
+            payment_notes: "SIMULATED PAYMENT (Test Mode) - #{Time.current.strftime('%Y-%m-%d %H:%M:%S')}"
+          )
+
+          # Log the payment activity
+          ActivityLog.log(
+            admin: nil,
+            action: 'payment_completed',
+            target: golfer,
+            details: "Payment of $#{format('%.2f', entry_fee / 100.0)} completed via Stripe (Test Mode)#{golfer.is_employee ? ' (Employee Rate)' : ''}",
+            tournament: golfer.tournament
+          )
+
+          emails_sent = true
+        end
 
         # CRITICAL: Render success response FIRST before any non-critical operations
         render json: {
@@ -531,10 +578,11 @@ module Api
           test_mode: true
         }
 
-        # Queue emails with staggered delays to avoid rate limiting
-        # For Stripe payments (test mode), send combined emails (registration + payment in one)
-        GolferMailer.confirmation_with_payment_email(golfer).deliver_later
-        AdminMailer.notify_new_registration_with_payment(golfer).deliver_later(wait: 2.seconds)
+        # Queue emails ONLY if we just processed the payment (outside transaction)
+        if emails_sent
+          GolferMailer.confirmation_with_payment_email(golfer).deliver_later
+          AdminMailer.notify_new_registration_with_payment(golfer).deliver_later(wait: 2.seconds)
+        end
 
         # Broadcast update (non-critical - wrapped in rescue)
         begin

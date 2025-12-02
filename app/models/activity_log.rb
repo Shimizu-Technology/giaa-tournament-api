@@ -15,6 +15,8 @@ class ActivityLog < ApplicationRecord
     golfer_refunded
     payment_marked
     payment_updated
+    payment_completed
+    payment_link_sent
     group_created
     group_updated
     group_deleted
