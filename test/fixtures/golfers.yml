@@ -82,3 +82,19 @@ stripe_golfer:
   group: group_two
   hole_number: 5
   position: 1
+
+cancelled_golfer:
+  tournament: tournament_one
+  name: "Charlie Cancelled"
+  company: "Cancelled Corp"
+  address: "303 Cancel St"
+  phone: "671-555-0006"
+  email: "charlie@test.com"
+  payment_type: "pay_on_day"
+  payment_status: "unpaid"
+  waiver_accepted_at: <%= Time.current %>
+  checked_in_at: ~
+  registration_status: "cancelled"
+  group: ~
+  hole_number: ~
+  position: ~

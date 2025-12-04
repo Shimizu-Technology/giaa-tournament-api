@@ -59,4 +59,25 @@ class AdminMailerTest < ActionMailer::TestCase
     
     assert_nil mail.to
   end
+
+  test "notify_new_registration_pending_payment" do
+    unpaid_golfer = golfers(:confirmed_unpaid)
+    
+    mail = AdminMailer.notify_new_registration_pending_payment(unpaid_golfer)
+    
+    assert_equal "New Registration - Awaiting Payment: #{unpaid_golfer.name}", mail.subject
+    assert_equal ["admin-test@example.com"], mail.to
+    assert_match unpaid_golfer.name, mail.body.encoded
+    assert_match unpaid_golfer.email, mail.body.encoded
+    assert_match "Awaiting Payment", mail.body.encoded
+  end
+
+  test "notify_new_registration_pending_payment returns nil without admin_email" do
+    @setting.update!(admin_email: nil)
+    unpaid_golfer = golfers(:confirmed_unpaid)
+    
+    mail = AdminMailer.notify_new_registration_pending_payment(unpaid_golfer)
+    
+    assert_nil mail.to
+  end
 end

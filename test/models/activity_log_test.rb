@@ -150,10 +150,35 @@ class ActivityLogTest < ActiveSupport::TestCase
       group_created group_updated group_deleted
       golfer_assigned_to_group golfer_removed_from_group
       settings_updated admin_created admin_deleted
+      payment_link_sent payment_completed employee_status_changed
     ]
     
     expected_actions.each do |action|
       assert_includes ActivityLog::ACTIONS, action, "Missing action: #{action}"
     end
+  end
+
+  test "payment_completed is a valid action" do
+    log = ActivityLog.new(
+      admin: admins(:admin_one),
+      action: "payment_completed"
+    )
+    assert log.valid?
+  end
+
+  test "payment_link_sent is a valid action" do
+    log = ActivityLog.new(
+      admin: admins(:admin_one),
+      action: "payment_link_sent"
+    )
+    assert log.valid?
+  end
+
+  test "employee_status_changed is a valid action" do
+    log = ActivityLog.new(
+      admin: admins(:admin_one),
+      action: "employee_status_changed"
+    )
+    assert log.valid?
   end
 end

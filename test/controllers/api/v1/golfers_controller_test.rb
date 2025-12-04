@@ -314,5 +314,110 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
     assert json.key?("paid")
     assert json.key?("checked_in")
   end
+
+  # ==================
+  # POST /api/v1/golfers/:id/toggle_employee
+  # ==================
+
+  test "toggle_employee marks golfer as employee" do
+    golfer = golfers(:confirmed_unpaid)
+    assert_not golfer.is_employee
+    
+    post toggle_employee_api_v1_golfer_url(golfer), headers: auth_headers
+    assert_response :success
+    
+    golfer.reload
+    assert golfer.is_employee
+  end
+
+  test "toggle_employee removes employee status" do
+    golfer = golfers(:confirmed_unpaid)
+    golfer.update!(is_employee: true)
+    
+    post toggle_employee_api_v1_golfer_url(golfer), headers: auth_headers
+    assert_response :success
+    
+    golfer.reload
+    assert_not golfer.is_employee
+  end
+
+  test "toggle_employee creates activity log" do
+    golfer = golfers(:confirmed_unpaid)
+    
+    assert_difference "ActivityLog.count", 1 do
+      post toggle_employee_api_v1_golfer_url(golfer), headers: auth_headers
+    end
+    
+    log = ActivityLog.last
+    assert_equal "employee_status_changed", log.action
+  end
+
+  # ==================
+  # POST /api/v1/golfers/:id/send_payment_link
+  # ==================
+
+  test "send_payment_link generates token and sends email" do
+    golfer = golfers(:confirmed_unpaid)
+    assert_nil golfer.payment_token
+    
+    post send_payment_link_api_v1_golfer_url(golfer), headers: auth_headers
+    assert_response :success
+    
+    golfer.reload
+    assert_not_nil golfer.payment_token
+    
+    json = JSON.parse(response.body)
+    assert json.key?("message")
+    assert json.key?("payment_link")
+  end
+
+  test "send_payment_link fails for paid golfer" do
+    golfer = golfers(:confirmed_paid)
+    
+    post send_payment_link_api_v1_golfer_url(golfer), headers: auth_headers
+    assert_response :unprocessable_entity
+  end
+
+  test "send_payment_link creates activity log" do
+    golfer = golfers(:confirmed_unpaid)
+    
+    assert_difference "ActivityLog.count", 1 do
+      post send_payment_link_api_v1_golfer_url(golfer), headers: auth_headers
+    end
+    
+    log = ActivityLog.last
+    assert_equal "payment_link_sent", log.action
+  end
+
+  # ==================
+  # Payment Details - verify payment_amount_cents
+  # ==================
+
+  test "payment_details sets payment_amount_cents" do
+    golfer = golfers(:confirmed_unpaid)
+    tournament = golfer.tournament
+    
+    post payment_details_api_v1_golfer_url(golfer), params: {
+      payment_method: "cash"
+    }, headers: auth_headers
+    
+    assert_response :success
+    golfer.reload
+    assert_equal tournament.entry_fee, golfer.payment_amount_cents
+  end
+
+  test "payment_details sets employee rate for employees" do
+    golfer = golfers(:confirmed_unpaid)
+    golfer.update!(is_employee: true)
+    tournament = golfer.tournament
+    
+    post payment_details_api_v1_golfer_url(golfer), params: {
+      payment_method: "cash"
+    }, headers: auth_headers
+    
+    assert_response :success
+    golfer.reload
+    assert_equal tournament.employee_entry_fee, golfer.payment_amount_cents
+  end
 end
 

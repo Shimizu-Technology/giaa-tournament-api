@@ -80,4 +80,29 @@ class GolferMailerTest < ActionMailer::TestCase
     assert_match @waitlist_golfer.name, mail.body.encoded
     assert_match "WAITLIST", mail.body.encoded
   end
+
+  test "payment_link_email sends email with payment link" do
+    unpaid_golfer = golfers(:confirmed_unpaid)
+    unpaid_golfer.generate_payment_token!
+    tournament_name = unpaid_golfer.tournament.name
+    
+    mail = GolferMailer.payment_link_email(unpaid_golfer)
+    
+    assert_equal "Complete Your Payment - #{tournament_name}", mail.subject
+    assert_equal [unpaid_golfer.email], mail.to
+    assert_match unpaid_golfer.name, mail.body.encoded
+    assert_match unpaid_golfer.payment_token, mail.body.encoded
+    assert_match "Pay Now", mail.body.encoded
+  end
+
+  test "payment_link_email shows employee rate for employees" do
+    unpaid_golfer = golfers(:confirmed_unpaid)
+    unpaid_golfer.update!(is_employee: true)
+    unpaid_golfer.generate_payment_token!
+    
+    mail = GolferMailer.payment_link_email(unpaid_golfer)
+    
+    assert_equal [unpaid_golfer.email], mail.to
+    assert_match "Employee Rate", mail.body.encoded
+  end
 end

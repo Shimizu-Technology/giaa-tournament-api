@@ -244,4 +244,65 @@ class GolferTest < ActiveSupport::TestCase
     assert_nil golfer.group
     assert golfer.valid?
   end
+
+  # ==================
+  # Payment Token Methods
+  # ==================
+
+  test "generate_payment_token! creates unique token" do
+    golfer = golfers(:confirmed_unpaid)
+    assert_nil golfer.payment_token
+    
+    token = golfer.generate_payment_token!
+    golfer.reload
+    
+    assert_not_nil token
+    assert_equal token, golfer.payment_token
+    assert token.length > 20
+  end
+
+  test "generate_payment_token! returns existing token if present" do
+    golfer = golfers(:confirmed_unpaid)
+    first_token = golfer.generate_payment_token!
+    second_token = golfer.generate_payment_token!
+    
+    assert_equal first_token, second_token
+  end
+
+  test "payment_link_url returns full URL with token" do
+    golfer = golfers(:confirmed_unpaid)
+    golfer.generate_payment_token!
+    
+    url = golfer.payment_link_url
+    assert_not_nil url
+    assert_includes url, golfer.payment_token
+    assert_includes url, "/pay/"
+  end
+
+  test "payment_link_url returns nil without token" do
+    golfer = golfers(:confirmed_unpaid)
+    assert_nil golfer.payment_token
+    assert_nil golfer.payment_link_url
+  end
+
+  test "can_send_payment_link? returns true for unpaid golfer" do
+    golfer = golfers(:confirmed_unpaid)
+    assert golfer.can_send_payment_link?
+  end
+
+  test "can_send_payment_link? returns false for paid golfer" do
+    golfer = golfers(:confirmed_paid)
+    assert_not golfer.can_send_payment_link?
+  end
+
+  test "can_send_payment_link? returns false for cancelled golfer" do
+    golfer = golfers(:cancelled_golfer)
+    assert_not golfer.can_send_payment_link?
+  end
+
+  test "can_send_payment_link? returns false for refunded golfer" do
+    golfer = golfers(:confirmed_paid)
+    golfer.update!(payment_status: "refunded")
+    assert_not golfer.can_send_payment_link?
+  end
 end

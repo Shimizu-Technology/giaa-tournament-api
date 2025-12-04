@@ -436,23 +436,34 @@ module Api
       def payment_details
         golfer = Golfer.find(params[:id])
         old_status = golfer.payment_status
+        
+        # Calculate the payment amount based on employee status
+        tournament = golfer.tournament
+        payment_amount = if golfer.is_employee
+          tournament&.employee_entry_fee || 5000
+        else
+          tournament&.entry_fee || 12500
+        end
 
         golfer.update!(
           payment_status: "paid",
           payment_method: params[:payment_method],
           receipt_number: params[:receipt_number],
-          payment_notes: params[:payment_notes]
+          payment_notes: params[:payment_notes],
+          payment_amount_cents: payment_amount
         )
 
         ActivityLog.log(
           admin: current_admin,
           action: 'payment_marked',
           target: golfer,
-          details: "Marked #{golfer.name} as paid (#{params[:payment_method]})",
+          details: "Marked #{golfer.name} as paid (#{params[:payment_method]}) - $#{format('%.2f', payment_amount / 100.0)}#{golfer.is_employee ? ' (Employee Rate)' : ''}",
           metadata: {
             payment_method: params[:payment_method],
             receipt_number: params[:receipt_number],
-            previous_status: old_status
+            previous_status: old_status,
+            payment_amount_cents: payment_amount,
+            is_employee: golfer.is_employee
           }
         )
 
@@ -591,6 +602,32 @@ module Api
           target: golfer,
           details: "Changed #{golfer.name} payment status from #{old_status} to #{new_status}",
           metadata: { previous_status: old_status, new_status: new_status }
+        )
+
+        broadcast_golfer_update(golfer)
+        render json: golfer
+      end
+
+      # POST /api/v1/golfers/:id/toggle_employee
+      # Mark or unmark a golfer as an employee (admin only)
+      def toggle_employee
+        golfer = Golfer.find(params[:id])
+        old_status = golfer.is_employee
+
+        # Toggle the employee status
+        golfer.update!(is_employee: !old_status)
+
+        action_text = golfer.is_employee ? "marked as employee" : "removed employee status"
+        
+        ActivityLog.log(
+          admin: current_admin,
+          action: 'employee_status_changed',
+          target: golfer,
+          details: "#{golfer.name} #{action_text}",
+          metadata: { 
+            previous_status: old_status, 
+            new_status: golfer.is_employee 
+          }
         )
 
         broadcast_golfer_update(golfer)

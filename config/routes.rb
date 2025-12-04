@@ -34,6 +34,7 @@ Rails.application.routes.draw do
           post :refund
           post :mark_refunded
           post :send_payment_link
+          post :toggle_employee
         end
         collection do
           get :registration_status
