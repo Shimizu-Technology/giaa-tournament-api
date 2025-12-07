@@ -666,7 +666,7 @@ module Api
             tournament_edition: tournament.edition,
             tournament_title: "AIRPORT WEEK", # Could add to Tournament model if needed
             tournament_name: tournament.name,
-            event_date: tournament.event_date,
+            event_date: format_event_date(tournament.event_date),
             registration_time: tournament.registration_time,
             start_time: tournament.start_time,
             location_name: tournament.location_name,
@@ -759,6 +759,14 @@ module Api
         })
       rescue StandardError => e
         Rails.logger.error("Failed to broadcast golfer update: #{e.message}")
+      end
+
+      def format_event_date(date)
+        return nil if date.nil?
+        return date if date.is_a?(String) # Already formatted string
+        date.strftime("%B %-d, %Y") # Format Date/DateTime objects
+      rescue
+        date.to_s # Fallback to string conversion
       end
 
       def log_golfer_update(golfer, old_values)

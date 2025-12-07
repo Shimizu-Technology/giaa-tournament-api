@@ -22,6 +22,29 @@ admin = Admin.find_or_create_by!(email: initial_admin_email.downcase) do |a|
 end
 puts "Created initial admin: #{admin.email} (will be linked when they log in via Clerk)"
 
+# Create a default tournament
+tournament = Tournament.find_or_create_by!(name: "Edward A.P. Muna II Memorial Golf Tournament") do |t|
+  t.year = 2026
+  t.edition = "5th"
+  t.event_date = Date.new(2026, 1, 9)
+  t.registration_time = "11:00 am"
+  t.start_time = "12:30 pm"
+  t.max_capacity = 160
+  t.reserved_slots = 0
+  t.entry_fee = 12500 # $125.00 in cents
+  t.employee_entry_fee = 5000 # $50.00 in cents
+  t.registration_open = true
+  t.status = "open"
+  t.location_name = "Country Club of the Pacific"
+  t.location_address = "Windward Hills, Guam"
+  t.format_name = "Individual Callaway"
+  t.fee_includes = "Green Fee, Ditty Bag, Drinks & Food"
+  t.checks_payable_to = "GIAAEO"
+  t.contact_name = "Peter Torres"
+  t.contact_phone = "671.689.8677"
+end
+puts "Created tournament: #{tournament.name} (#{tournament.year})"
+
 # Only seed sample data in development
 if Rails.env.development?
   puts "Creating sample golfers for development..."
@@ -40,6 +63,7 @@ if Rails.env.development?
 
   sample_golfers.each do |attrs|
     golfer = Golfer.find_or_create_by!(email: attrs[:email]) do |g|
+      g.tournament = tournament
       g.name = attrs[:name]
       g.company = attrs[:company]
       g.phone = attrs[:phone]
@@ -55,7 +79,7 @@ if Rails.env.development?
   # Create some groups
   puts "Creating sample groups..."
   2.times do |i|
-    group = Group.find_or_create_by!(group_number: i + 1) do |g|
+    group = Group.find_or_create_by!(group_number: i + 1, tournament: tournament) do |g|
       g.hole_number = i + 1
     end
     puts "Created group #{group.group_number} at hole #{group.hole_number}"
@@ -64,7 +88,7 @@ if Rails.env.development?
   # Assign some golfers to groups
   puts "Assigning golfers to groups..."
   golfers = Golfer.unassigned.limit(8)
-  groups = Group.all
+  groups = Group.where(tournament: tournament)
 
   golfers.each_with_index do |golfer, index|
     group = groups[index / 4]
