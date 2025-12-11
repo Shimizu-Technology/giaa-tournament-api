@@ -634,6 +634,178 @@ module Api
         render json: golfer
       end
 
+      # POST /api/v1/golfers/bulk_set_employee
+      # Mark or unmark multiple golfers as employees (admin only)
+      # Skips golfers who have already paid (can't change rate after payment)
+      def bulk_set_employee
+        golfer_ids = params[:golfer_ids]
+        is_employee = params[:is_employee]
+
+        unless golfer_ids.is_a?(Array) && golfer_ids.any?
+          render json: { error: "golfer_ids must be a non-empty array" }, status: :unprocessable_entity
+          return
+        end
+
+        unless [true, false].include?(is_employee)
+          render json: { error: "is_employee must be true or false" }, status: :unprocessable_entity
+          return
+        end
+
+        # Find all golfers (scoped to avoid cross-tournament updates)
+        tournament = find_tournament
+        return render_tournament_required unless tournament
+
+        golfers = tournament.golfers.where(id: golfer_ids)
+        
+        if golfers.empty?
+          render json: { error: "No matching golfers found" }, status: :not_found
+          return
+        end
+
+        updated_count = 0
+        skipped_count = 0
+        skipped_reasons = []
+        updated_golfers = []
+
+        golfers.find_each do |golfer|
+          # Skip if already the desired status
+          if golfer.is_employee == is_employee
+            skipped_count += 1
+            skipped_reasons << { name: golfer.name, reason: "already #{is_employee ? 'employee' : 'non-employee'}" }
+            next
+          end
+
+          # Skip if already paid - can't change rate after payment
+          if golfer.payment_status == 'paid'
+            skipped_count += 1
+            skipped_reasons << { name: golfer.name, reason: "already paid" }
+            next
+          end
+
+          # Skip if refunded - registration is cancelled
+          if golfer.payment_status == 'refunded' || golfer.registration_status == 'cancelled'
+            skipped_count += 1
+            skipped_reasons << { name: golfer.name, reason: "cancelled/refunded" }
+            next
+          end
+
+          golfer.update!(is_employee: is_employee)
+          updated_golfers << golfer
+          updated_count += 1
+
+          # Log for each golfer individually (shows in their activity history)
+          action_text_single = is_employee ? "marked as employee" : "removed employee status"
+          ActivityLog.log(
+            admin: current_admin,
+            action: 'employee_status_changed',
+            target: golfer,
+            details: "#{golfer.name} #{action_text_single} (bulk action)",
+            metadata: { 
+              previous_status: !is_employee, 
+              new_status: is_employee,
+              bulk_action: true
+            }
+          )
+
+          # Broadcast each update
+          broadcast_golfer_update(golfer)
+        end
+
+        action_text = is_employee ? "marked as employees" : "removed employee status"
+
+        render json: {
+          success: true,
+          message: "#{updated_count} golfer(s) #{action_text}",
+          updated_count: updated_count,
+          skipped_count: skipped_count,
+          skipped_reasons: skipped_reasons,
+          golfers: ActiveModelSerializers::SerializableResource.new(updated_golfers)
+        }
+      end
+
+      # POST /api/v1/golfers/bulk_send_payment_links
+      # Send payment links to multiple unpaid golfers
+      def bulk_send_payment_links
+        golfer_ids = params[:golfer_ids]
+
+        unless golfer_ids.is_a?(Array) && golfer_ids.any?
+          render json: { error: "golfer_ids must be a non-empty array" }, status: :unprocessable_entity
+          return
+        end
+
+        # Find all golfers (scoped to tournament)
+        tournament = find_tournament
+        return render_tournament_required unless tournament
+
+        golfers = tournament.golfers.where(id: golfer_ids)
+        
+        if golfers.empty?
+          render json: { error: "No matching golfers found" }, status: :not_found
+          return
+        end
+
+        sent_count = 0
+        skipped_count = 0
+        skipped_reasons = []
+        sent_golfers = []
+
+        golfers.find_each do |golfer|
+          # Skip if can't send payment link (already paid, cancelled, etc.)
+          unless golfer.can_send_payment_link?
+            skipped_count += 1
+            reason = if golfer.payment_status == "paid"
+              "already paid"
+            elsif golfer.payment_status == "refunded"
+              "refunded"
+            elsif golfer.registration_status == "cancelled"
+              "cancelled"
+            else
+              "ineligible"
+            end
+            skipped_reasons << { name: golfer.name, reason: reason }
+            next
+          end
+
+          # Check if this is the first time sending payment link (for admin notification)
+          first_time_sending = golfer.payment_token.blank?
+
+          # Generate token if not already present
+          golfer.generate_payment_token!
+
+          # Send the payment link email to golfer
+          GolferMailer.payment_link_email(golfer).deliver_later
+
+          # Notify admin only if this is the first time sending (not a resend)
+          if first_time_sending
+            AdminMailer.notify_new_registration_pending_payment(golfer).deliver_later(wait: 2.seconds)
+          end
+
+          # Log for each golfer individually (shows in their activity history)
+          ActivityLog.log(
+            admin: current_admin,
+            action: 'payment_link_sent',
+            target: golfer,
+            details: "Sent payment link to #{golfer.name} (bulk action)",
+            metadata: { 
+              email: golfer.email,
+              bulk_action: true,
+              resend: !first_time_sending
+            }
+          )
+
+          sent_golfers << golfer
+          sent_count += 1
+        end
+
+        render json: {
+          success: true,
+          message: "Payment links sent to #{sent_count} golfer(s)",
+          sent_count: sent_count,
+          skipped_count: skipped_count,
+          skipped_reasons: skipped_reasons
+        }
+      end
+
       # GET /api/v1/golfers/registration_status
       # Public endpoint to check registration capacity
       def registration_status

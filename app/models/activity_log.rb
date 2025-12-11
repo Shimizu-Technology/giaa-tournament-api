@@ -34,6 +34,8 @@ class ActivityLog < ApplicationRecord
     employee_number_deleted
     employee_number_released
     employee_status_changed
+    bulk_employee_update
+    bulk_payment_links_sent
   ].freeze
 
   validates :action, presence: true, inclusion: { in: ACTIONS }

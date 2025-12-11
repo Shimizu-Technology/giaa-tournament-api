@@ -39,6 +39,8 @@ Rails.application.routes.draw do
         collection do
           get :registration_status
           get :stats
+          post :bulk_set_employee
+          post :bulk_send_payment_links
         end
       end
       
