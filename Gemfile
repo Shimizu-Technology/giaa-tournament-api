@@ -42,7 +42,7 @@ gem "dotenv-rails"
 gem "jwt"
 
 # Serializers for JSON API responses
-gem "active_model_serializers", "~> 0.10.13"
+gem "active_model_serializers", "~> 0.10.16"
 
 # Email service
 gem "resend"
