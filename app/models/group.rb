@@ -16,6 +16,26 @@ class Group < ApplicationRecord
     golfers.count >= MAX_GOLFERS
   end
 
+  # Hole-based label for the group (e.g., "7A" for first foursome at Hole 7)
+  # Always includes a letter suffix for consistency
+  def hole_position_label
+    return "Unassigned" unless hole_number
+
+    # Get all groups at this hole, sorted by group_number for consistent ordering
+    groups_at_hole = Group.where(
+      tournament_id: tournament_id,
+      hole_number: hole_number
+    ).order(:group_number)
+
+    # Find this group's index among all groups at this hole
+    group_ids = groups_at_hole.pluck(:id)
+    position_index = group_ids.index(id)
+    
+    # Always add letter suffix for consistency
+    position_letter = ('A'..'Z').to_a[position_index] || 'X'
+    "#{hole_number}#{position_letter}"
+  end
+
   def golfer_labels
     golfers.order(:position).map.with_index do |golfer, index|
       letter = ("a".."d").to_a[index]

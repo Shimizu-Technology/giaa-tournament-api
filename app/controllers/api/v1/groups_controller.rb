@@ -31,8 +31,8 @@ module Api
             admin: current_admin,
             action: 'group_created',
             target: group,
-            details: "Created Group #{group.group_number}",
-            metadata: { hole_number: group.hole_number }
+            details: "Created Hole #{group.hole_position_label}",
+            metadata: { hole_number: group.hole_number, group_number: group.group_number }
           )
           broadcast_groups_update(tournament)
           render json: group, status: :created
@@ -52,8 +52,8 @@ module Api
               admin: current_admin,
               action: 'group_updated',
               target: group,
-              details: "Changed Group #{group.group_number} hole from #{old_hole || 'unassigned'} to #{group.hole_number}",
-              metadata: { previous_hole: old_hole, new_hole: group.hole_number }
+              details: "Moved group to Hole #{group.hole_position_label} (was Hole #{old_hole || 'unassigned'})",
+              metadata: { previous_hole: old_hole, new_hole: group.hole_number, group_number: group.group_number }
             )
           end
           broadcast_groups_update(group.tournament)
@@ -73,6 +73,7 @@ module Api
         # Remove all golfers from the group first
         group.golfers.update_all(group_id: nil, position: nil)
 
+        hole_label = group.hole_position_label
         group.destroy
         
         ActivityLog.log(
@@ -80,8 +81,8 @@ module Api
           action: 'group_deleted',
           target: nil,
           tournament: tournament,
-          details: "Deleted Group #{group_number}",
-          metadata: { group_number: group_number, removed_golfers: golfer_names }
+          details: "Deleted Hole #{hole_label}",
+          metadata: { group_number: group_number, hole_label: hole_label, removed_golfers: golfer_names }
         )
         
         broadcast_groups_update(tournament)
@@ -103,8 +104,8 @@ module Api
             admin: current_admin,
             action: 'group_updated',
             target: group,
-            details: "Assigned Group #{group.group_number} to Hole #{group.hole_number}",
-            metadata: { previous_hole: old_hole, new_hole: group.hole_number }
+            details: "Assigned to Hole #{group.hole_position_label}",
+            metadata: { previous_hole: old_hole, new_hole: group.hole_number, group_number: group.group_number }
           )
           broadcast_groups_update(group.tournament)
           render json: group, include: "golfers"
@@ -139,8 +140,8 @@ module Api
             admin: current_admin,
             action: 'golfer_assigned_to_group',
             target: golfer,
-            details: "Added #{golfer.name} to Group #{group.group_number}",
-            metadata: { group_id: group.id, group_number: group.group_number }
+            details: "Added #{golfer.name} to Hole #{group.hole_position_label}",
+            metadata: { group_id: group.id, group_number: group.group_number, hole_label: group.hole_position_label }
           )
           broadcast_groups_update(group.tournament)
           render json: group, include: "golfers"
@@ -159,14 +160,15 @@ module Api
           return
         end
 
+        hole_label = group.hole_position_label
         group.remove_golfer(golfer)
         
         ActivityLog.log(
           admin: current_admin,
           action: 'golfer_removed_from_group',
           target: golfer,
-          details: "Removed #{golfer.name} from Group #{group.group_number}",
-          metadata: { group_id: group.id, group_number: group.group_number }
+          details: "Removed #{golfer.name} from Hole #{hole_label}",
+          metadata: { group_id: group.id, group_number: group.group_number, hole_label: hole_label }
         )
         
         broadcast_groups_update(group.tournament)
