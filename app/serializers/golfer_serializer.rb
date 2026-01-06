@@ -1,9 +1,9 @@
 class GolferSerializer < ActiveModel::Serializer
-  attributes :id, :tournament_id, :name, :company, :address, :phone, :mobile, :email,
+  attributes :id, :tournament_id, :name, :last_name, :company, :address, :phone, :mobile, :email,
              :payment_type, :payment_status, :waiver_accepted_at,
              :checked_in_at, :registration_status, :group_id, :hole_number,
              :position, :notes, :payment_method, :receipt_number, :payment_notes,
-             :created_at, :updated_at, :group_position_label, :checked_in, :waiver_signed,
+             :created_at, :updated_at, :group_position_label, :hole_position_label, :checked_in, :waiver_signed,
              # Employee fields
              :is_employee, :employee_number,
              # Payment link
@@ -20,12 +20,22 @@ class GolferSerializer < ActiveModel::Serializer
     object.checked_in?
   end
 
+  # Extract last name (last word of the full name) for sorting
+  def last_name
+    return nil unless object.name.present?
+    object.name.split.last
+  end
+
   def waiver_signed
     object.waiver_accepted_at.present?
   end
 
   def group_position_label
     object.group_position_label
+  end
+
+  def hole_position_label
+    object.hole_position_label
   end
 
   # Get hole_number from the group, not from the golfer directly
