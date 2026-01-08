@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_01_033433) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_08_080919) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -68,6 +68,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_01_033433) do
     t.string "mobile"
     t.string "name"
     t.text "notes"
+    t.datetime "paid_at"
     t.integer "payment_amount_cents"
     t.string "payment_method"
     t.text "payment_notes"
@@ -92,6 +93,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_01_033433) do
     t.datetime "waiver_accepted_at"
     t.index ["employee_number_record_id"], name: "index_golfers_on_employee_number_record_id"
     t.index ["group_id"], name: "index_golfers_on_group_id"
+    t.index ["paid_at"], name: "index_golfers_on_paid_at"
     t.index ["payment_token"], name: "index_golfers_on_payment_token", unique: true
     t.index ["stripe_checkout_session_id"], name: "index_golfers_on_stripe_checkout_session_id", unique: true, where: "(stripe_checkout_session_id IS NOT NULL)"
     t.index ["stripe_refund_id"], name: "index_golfers_on_stripe_refund_id", unique: true, where: "(stripe_refund_id IS NOT NULL)"

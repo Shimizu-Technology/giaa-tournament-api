@@ -17,6 +17,7 @@ class ActivityLog < ApplicationRecord
     payment_updated
     payment_completed
     payment_link_sent
+    payment_notes_updated
     group_created
     group_updated
     group_deleted

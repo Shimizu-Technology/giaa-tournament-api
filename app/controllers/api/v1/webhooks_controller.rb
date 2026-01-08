@@ -88,7 +88,8 @@ module Api
           payment_status: "paid",
           stripe_payment_intent_id: session.payment_intent,
           payment_method: "stripe",
-          payment_notes: "Paid via Stripe on #{Time.current.strftime('%Y-%m-%d %H:%M:%S')} (webhook confirmed)"
+          payment_notes: "Paid via Stripe on #{Time.current.strftime('%Y-%m-%d %H:%M:%S')} (webhook confirmed)",
+          paid_at: Time.current
         )
 
         Rails.logger.info("Golfer #{golfer.id} marked as paid via webhook")

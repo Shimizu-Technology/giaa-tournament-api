@@ -149,7 +149,7 @@ module Api
       # PATCH /api/v1/golfers/:id
       def update
         golfer = Golfer.find(params[:id])
-        old_values = golfer.attributes.slice('group_id', 'payment_status', 'registration_status', 'name', 'email', 'phone', 'company', 'address')
+        old_values = golfer.attributes.slice('group_id', 'payment_status', 'registration_status', 'name', 'email', 'phone', 'company', 'address', 'payment_notes')
 
         if golfer.update(golfer_update_params)
           # Log activity for meaningful changes
@@ -450,7 +450,8 @@ module Api
           payment_method: params[:payment_method],
           receipt_number: params[:receipt_number],
           payment_notes: params[:payment_notes],
-          payment_amount_cents: payment_amount
+          payment_amount_cents: payment_amount,
+          paid_at: Time.current
         )
 
         ActivityLog.log(
@@ -590,10 +591,14 @@ module Api
             payment_status: 'unpaid',
             payment_method: nil,
             receipt_number: nil,
-            payment_notes: nil
+            payment_notes: nil,
+            paid_at: nil
           )
         else
-          golfer.update!(payment_status: 'paid')
+          golfer.update!(
+            payment_status: 'paid',
+            paid_at: Time.current
+          )
         end
 
         ActivityLog.log(
@@ -987,6 +992,27 @@ module Api
             metadata: {
               previous_status: old_values['payment_status'],
               new_status: golfer.payment_status
+            }
+          )
+        end
+
+        # Check for payment notes changes
+        if old_values['payment_notes'] != golfer.payment_notes
+          old_notes = old_values['payment_notes'].presence || '(empty)'
+          new_notes = golfer.payment_notes.presence || '(empty)'
+          
+          # Truncate for display in details (keep full in metadata)
+          old_notes_display = old_notes.length > 50 ? "#{old_notes[0..47]}..." : old_notes
+          new_notes_display = new_notes.length > 50 ? "#{new_notes[0..47]}..." : new_notes
+          
+          ActivityLog.log(
+            admin: current_admin,
+            action: 'payment_notes_updated',
+            target: golfer,
+            details: "Updated payment notes for #{golfer.name}",
+            metadata: {
+              previous_notes: old_values['payment_notes'],
+              new_notes: golfer.payment_notes
             }
           )
         end

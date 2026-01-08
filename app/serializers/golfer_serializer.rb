@@ -12,7 +12,9 @@ class GolferSerializer < ActiveModel::Serializer
              :stripe_card_brand, :stripe_card_last4, :payment_amount_cents,
              :stripe_refund_id, :refund_amount_cents, :refund_reason, :refunded_at,
              :refunded_by_name, :can_refund, :can_cancel, :cancelled, :refunded,
-             :formatted_payment_timestamp
+             :formatted_payment_timestamp,
+             # Payment timing fields
+             :paid_at, :payment_timing, :payment_channel
 
   belongs_to :group, optional: true
 
@@ -81,5 +83,48 @@ class GolferSerializer < ActiveModel::Serializer
       end
     end
     nil
+  end
+
+  # Determine if payment was day-of or pre-paid
+  # Returns: 'day_of', 'pre_paid', or nil if not paid
+  def payment_timing
+    return nil unless object.payment_status == 'paid'
+    return nil unless object.paid_at.present?
+    
+    tournament = object.tournament
+    return nil unless tournament&.event_date.present?
+    
+    # Parse the tournament event date (stored as string like "January 9, 2026")
+    begin
+      event_date = Date.parse(tournament.event_date)
+      payment_date = object.paid_at.to_date
+      
+      if payment_date >= event_date
+        'day_of'
+      else
+        'pre_paid'
+      end
+    rescue ArgumentError
+      nil
+    end
+  end
+
+  # Determine the payment channel
+  # Returns: 'stripe_online', 'credit_venue', 'cash', 'check', or nil
+  def payment_channel
+    return nil unless object.payment_status == 'paid'
+    
+    # If has Stripe payment intent, it was paid online via Stripe
+    if object.stripe_payment_intent_id.present?
+      'stripe_online'
+    elsif object.payment_method == 'credit'
+      'credit_venue'
+    elsif object.payment_method == 'cash'
+      'cash'
+    elsif object.payment_method == 'check'
+      'check'
+    else
+      nil
+    end
   end
 end
