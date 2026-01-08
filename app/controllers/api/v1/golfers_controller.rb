@@ -468,6 +468,11 @@ module Api
           }
         )
 
+        # Send payment confirmation email
+        if golfer.email.present?
+          GolferMailer.payment_confirmation_email(golfer).deliver_later
+        end
+
         broadcast_golfer_update(golfer)
         render json: golfer
       end
@@ -599,6 +604,11 @@ module Api
             payment_status: 'paid',
             paid_at: Time.current
           )
+          
+          # Send payment confirmation email when marking as paid
+          if golfer.email.present?
+            GolferMailer.payment_confirmation_email(golfer).deliver_later
+          end
         end
 
         ActivityLog.log(
