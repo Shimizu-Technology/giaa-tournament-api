@@ -83,4 +83,11 @@ Rails.application.configure do
   #
   # Skip DNS rebinding protection for the default health check endpoint.
   # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+
+  # ActionCable configuration for real-time updates
+  # Allow connections from the production frontend
+  config.action_cable.allowed_request_origins = [
+    ENV.fetch("FRONTEND_URL", "https://giaa-tournament.vercel.app"),
+    %r{https://.*\.vercel\.app}
+  ]
 end
