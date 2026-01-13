@@ -2,6 +2,12 @@
 
 Rails API backend for the Golf Tournament Registration System. Supports multiple tournaments with full registration, check-in, group management, payment processing, employee discounts, and refunds.
 
+## Prerequisites
+
+- **Ruby 3.3.4** (use [rbenv](https://github.com/rbenv/rbenv) or [asdf](https://asdf-vm.com/))
+- **PostgreSQL 14+** (install via Homebrew: `brew install postgresql@16`)
+- **Bundler** (`gem install bundler`)
+
 ## Tech Stack
 
 - **Ruby on Rails 8.1** (API mode)
@@ -14,17 +20,26 @@ Rails API backend for the Golf Tournament Registration System. Supports multiple
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
+# 1. Clone and enter the directory
+cd giaa-tournament-api
+
+# 2. Install Ruby dependencies
 bundle install
 
-# 2. Setup database
+# 3. Create .env file
+cp .env.example .env
+# Edit .env with your Clerk JWKS URL and other keys
+
+# 4. Setup database
 rails db:create
 rails db:migrate
 rails db:seed
 
-# 3. Start the server
-rails s -p 3000
+# 5. Start the server
+rails s
 ```
+
+The API will be available at `http://localhost:3000`
 
 ## Environment Variables
 
