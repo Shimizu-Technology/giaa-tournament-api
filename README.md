@@ -28,7 +28,7 @@ bundle install
 
 # 3. Create .env file
 cp .env.example .env
-# Edit .env with your Clerk JWKS URL and other keys
+# ⚠️ Ask Lead for the actual .env values (Clerk, Resend, Stripe keys)
 
 # 4. Setup database
 rails db:create
@@ -40,6 +40,65 @@ rails s
 ```
 
 The API will be available at `http://localhost:3000`
+
+## Team Onboarding
+
+**Do NOT create your own accounts for Clerk, Resend, or Stripe.** We share one set of API keys for development.
+
+1. **Get the `.env` file** - Ask Lead for the real values (Clerk JWKS URL, Resend API key, etc.)
+2. **Add yourself as an Admin** - Add your email to YOUR local Admin table (see below)
+
+### Local Development: What's Shared vs Local
+
+This is different from rolling your own auth where everything is local:
+
+| What | Where | Shared Between Devs? |
+|------|-------|---------------------|
+| Clerk users (login/password) | Clerk's cloud | ✅ Yes |
+| Golfers, Tournaments, Groups | Your local PostgreSQL | ❌ No |
+| Admin whitelist | Your local PostgreSQL | ❌ No |
+
+**In practice**, each developer:
+1. Signs up once at `/admin/login` (creates your user in Clerk - this is shared)
+2. Adds their own email to their LOCAL database (not shared)
+3. Sees only THEIR local data
+
+**To add yourself as an admin locally:**
+```bash
+rails c
+Admin.create!(email: "your-email@example.com", name: "Your Name")
+```
+
+This is the same pattern you're used to - your database is still 100% local. Clerk just handles password verification in the cloud instead of bcrypt in your DB.
+
+## How Authentication Works (Clerk vs bcrypt/JWT)
+
+If you learned auth with bcrypt + manually creating JWTs, here's how Clerk is different:
+
+| Traditional (bcrypt/JWT) | Clerk |
+|--------------------------|-------|
+| You build login/signup UI | Clerk provides pre-built UI components |
+| You hash passwords with bcrypt | Clerk handles password storage securely |
+| You create/sign JWT tokens manually | Clerk issues JWT tokens automatically |
+| You store user data in your DB | Clerk stores users in their cloud (we just whitelist emails) |
+| You verify tokens with your secret key | We verify tokens with Clerk's public keys (JWKS) |
+
+**The Flow:**
+
+```
+1. User clicks "Sign In" → Clerk's <SignIn /> component handles everything
+2. User enters credentials → Clerk authenticates them
+3. Clerk issues a JWT → Frontend stores it automatically
+4. Frontend sends JWT in Authorization header → "Bearer <token>"
+5. Backend fetches Clerk's public keys (JWKS) and verifies the JWT
+6. Backend checks if user's email is in Admin whitelist
+7. If whitelisted → Access granted!
+```
+
+**Key Files:**
+- `app/services/clerk_auth.rb` - Fetches JWKS and verifies JWT tokens
+- `app/controllers/concerns/authenticated.rb` - Before action that checks auth + admin whitelist
+- `app/models/admin.rb` - Admin whitelist (stores allowed emails)
 
 ## Environment Variables
 
