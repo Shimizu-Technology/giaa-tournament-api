@@ -41,7 +41,7 @@ class GroupTest < ActiveSupport::TestCase
   test "should allow same group_number in different tournaments" do
     existing = groups(:group_one)
     other_tournament = tournaments(:tournament_archived)
-    
+
     group = Group.new(
       tournament: other_tournament,
       group_number: existing.group_number
@@ -114,9 +114,9 @@ class GroupTest < ActiveSupport::TestCase
     group = groups(:group_three)
     group.golfers.destroy_all
     golfer = golfers(:confirmed_unpaid)
-    
+
     result = group.add_golfer(golfer)
-    
+
     assert result
     golfer.reload
     assert_equal group.id, golfer.group_id
@@ -126,10 +126,10 @@ class GroupTest < ActiveSupport::TestCase
   test "remove_golfer unassigns golfer from group" do
     golfer = golfers(:confirmed_paid)
     group = golfer.group
-    
+
     group.remove_golfer(golfer)
     golfer.reload
-    
+
     assert_nil golfer.group_id
     assert_nil golfer.position
   end

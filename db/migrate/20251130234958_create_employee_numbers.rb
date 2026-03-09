@@ -11,6 +11,6 @@ class CreateEmployeeNumbers < ActiveRecord::Migration[8.1]
     end
 
     # Unique constraint: each employee number can only exist once per tournament
-    add_index :employee_numbers, [:tournament_id, :employee_number], unique: true
+    add_index :employee_numbers, [ :tournament_id, :employee_number ], unique: true
   end
 end

@@ -14,9 +14,9 @@ class Tournament < ApplicationRecord
   validates :employee_entry_fee, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
 
   # Scopes
-  scope :active, -> { where.not(status: 'archived') }
-  scope :archived, -> { where(status: 'archived') }
-  scope :open_for_registration, -> { where(status: 'open', registration_open: true) }
+  scope :active, -> { where.not(status: "archived") }
+  scope :archived, -> { where(status: "archived") }
+  scope :open_for_registration, -> { where(status: "open", registration_open: true) }
   scope :by_year, ->(year) { where(year: year) }
   scope :recent, -> { order(year: :desc, created_at: :desc) }
 
@@ -31,19 +31,19 @@ class Tournament < ApplicationRecord
 
   # Instance methods
   def draft?
-    status == 'draft'
+    status == "draft"
   end
 
   def open?
-    status == 'open'
+    status == "open"
   end
 
   def closed?
-    status == 'closed'
+    status == "closed"
   end
 
   def archived?
-    status == 'archived'
+    status == "archived"
   end
 
   def can_register?
@@ -63,12 +63,12 @@ class Tournament < ApplicationRecord
   # Check if an employee number is valid and available
   def validate_employee_number(number)
     return { valid: false, error: "Employee number is required" } if number.blank?
-    
+
     emp_record = employee_numbers.find_by(employee_number: number)
-    
+
     return { valid: false, error: "Invalid employee number" } unless emp_record
     return { valid: false, error: "This employee number has already been used" } if emp_record.used?
-    
+
     { valid: true, employee_number_record: emp_record }
   end
 
@@ -131,7 +131,7 @@ class Tournament < ApplicationRecord
 
   # Archive this tournament
   def archive!
-    update!(status: 'archived', registration_open: false)
+    update!(status: "archived", registration_open: false)
   end
 
   # Copy this tournament to create a new one for next year
@@ -140,7 +140,7 @@ class Tournament < ApplicationRecord
       name: name,
       year: year + 1,
       edition: increment_edition,
-      status: 'draft',
+      status: "draft",
       event_date: nil, # User should set new date
       registration_time: registration_time,
       start_time: start_time,
@@ -162,16 +162,16 @@ class Tournament < ApplicationRecord
   private
 
   def increment_edition
-    return '1st' if edition.blank?
-    
+    return "1st" if edition.blank?
+
     # Extract number from edition (e.g., "5th" -> 5)
     current_num = edition.to_i
     next_num = current_num + 1
-    
+
     case next_num
-    when 1 then '1st'
-    when 2 then '2nd'
-    when 3 then '3rd'
+    when 1 then "1st"
+    when 2 then "2nd"
+    when 3 then "3rd"
     else "#{next_num}th"
     end
   end

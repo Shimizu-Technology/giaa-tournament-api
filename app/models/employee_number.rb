@@ -1,6 +1,6 @@
 class EmployeeNumber < ApplicationRecord
   belongs_to :tournament
-  belongs_to :used_by_golfer, class_name: 'Golfer', optional: true
+  belongs_to :used_by_golfer, class_name: "Golfer", optional: true
 
   validates :employee_number, presence: true
   validates :employee_number, uniqueness: { scope: :tournament_id, message: "already exists for this tournament" }
@@ -41,4 +41,3 @@ class EmployeeNumber < ApplicationRecord
     end
   end
 end
-

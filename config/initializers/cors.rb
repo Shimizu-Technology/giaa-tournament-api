@@ -17,12 +17,12 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
             "https://giaa-tournment.com",
             "https://www.giaa-tournment.com",
             # Also allow from FRONTEND_URL env var if set
-            *([ENV["FRONTEND_URL"]].compact)
+            *([ ENV["FRONTEND_URL"] ].compact)
 
     resource "*",
       headers: :any,
-      methods: [:get, :post, :put, :patch, :delete, :options, :head],
+      methods: [ :get, :post, :put, :patch, :delete, :options, :head ],
       credentials: true,
-      expose: ["Authorization"]
+      expose: [ "Authorization" ]
   end
 end

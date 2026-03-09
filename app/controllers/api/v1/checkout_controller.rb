@@ -32,25 +32,25 @@ module Api
 
         # Get the frontend URL for success/cancel redirects
         frontend_url = ENV.fetch("FRONTEND_URL", "http://localhost:5173")
-        
+
         # Entry fee in cents from settings (default $125.00 = 12500 cents)
         entry_fee = setting.tournament_entry_fee || 12500
 
         begin
           # Create a Stripe Checkout Session
           session = Stripe::Checkout::Session.create({
-            payment_method_types: ["card"],
-            line_items: [{
+            payment_method_types: [ "card" ],
+            line_items: [ {
               price_data: {
                 currency: "usd",
                 product_data: {
                   name: "#{setting.tournament_title || 'Golf Tournament'} Entry Fee",
-                  description: "#{setting.tournament_name || 'Golf Tournament'} - #{golfer.name}",
+                  description: "#{setting.tournament_name || 'Golf Tournament'} - #{golfer.name}"
                 },
-                unit_amount: entry_fee,
+                unit_amount: entry_fee
               },
-              quantity: 1,
-            }],
+              quantity: 1
+            } ],
             mode: "payment",
             success_url: "#{frontend_url}/payment/success?session_id={CHECKOUT_SESSION_ID}",
             cancel_url: "#{frontend_url}/payment/cancel?golfer_id=#{golfer.id}",
@@ -58,10 +58,10 @@ module Api
             metadata: {
               golfer_id: golfer.id.to_s,
               golfer_name: golfer.name,
-              golfer_email: golfer.email,
+              golfer_email: golfer.email
             },
             # Collect billing address
-            billing_address_collection: "required",
+            billing_address_collection: "required"
           })
 
           # Save the session ID to the golfer record
@@ -71,7 +71,7 @@ module Api
             checkout_url: session.url,
             session_id: session.id,
             golfer_id: golfer.id,
-            test_mode: false,
+            test_mode: false
           }
         rescue Stripe::StripeError => e
           Rails.logger.error("Stripe error: #{e.message}")
@@ -138,18 +138,18 @@ module Api
           # Create a Stripe Checkout Session for embedded checkout
           session = Stripe::Checkout::Session.create({
             ui_mode: "embedded",
-            payment_method_types: ["card"],
-            line_items: [{
+            payment_method_types: [ "card" ],
+            line_items: [ {
               price_data: {
                 currency: "usd",
                 product_data: {
                   name: "#{tournament.name} Entry Fee",
-                  description: "Golf Tournament Registration - #{golfer_data[:name]} (#{fee_description})",
+                  description: "Golf Tournament Registration - #{golfer_data[:name]} (#{fee_description})"
                 },
-                unit_amount: entry_fee,
+                unit_amount: entry_fee
               },
-              quantity: 1,
-            }],
+              quantity: 1
+            } ],
             mode: "payment",
             return_url: "#{frontend_url}/registration/success?session_id={CHECKOUT_SESSION_ID}",
             customer_email: golfer_data[:email],
@@ -165,9 +165,9 @@ module Api
               waiver_accepted: "true",
               payment_type: "stripe",
               is_employee: is_employee.to_s,
-              employee_number: employee_number || "",
+              employee_number: employee_number || ""
             },
-            billing_address_collection: "required",
+            billing_address_collection: "required"
           })
 
           render json: {
@@ -175,7 +175,7 @@ module Api
             session_id: session.id,
             test_mode: false,
             is_employee: is_employee,
-            entry_fee: entry_fee,
+            entry_fee: entry_fee
           }
         rescue Stripe::StripeError => e
           Rails.logger.error("Stripe embedded checkout error: #{e.message}")
@@ -199,7 +199,7 @@ module Api
         if session_id.start_with?("test_session_") || session_id.start_with?("test_embedded_")
           return handle_test_mode_confirm(session_id)
         end
-        
+
         unless setting.stripe_secret_key.present?
           render json: { error: "Stripe is not configured" }, status: :service_unavailable
           return
@@ -236,11 +236,11 @@ module Api
 
           # Use database-level locking to prevent race conditions from duplicate requests
           should_send_emails = false
-          
+
           ActiveRecord::Base.transaction do
             # Lock the row to prevent concurrent updates
             golfer.lock!
-            
+
             # Skip if already marked as paid (idempotency check after lock)
             if golfer.payment_status == "paid" && golfer.stripe_payment_intent_id.present?
               render json: {
@@ -275,7 +275,7 @@ module Api
             end
 
             # Format a nice timestamp in Guam time
-            formatted_time = Time.current.in_time_zone('Pacific/Guam').strftime('%B %d, %Y at %I:%M %p')
+            formatted_time = Time.current.in_time_zone("Pacific/Guam").strftime("%B %d, %Y at %I:%M %p")
 
             # Update golfer payment status with all details
             golfer.update!(
@@ -292,12 +292,12 @@ module Api
             # Log the payment activity
             ActivityLog.log(
               admin: nil,  # No admin - self-service payment
-              action: 'payment_completed',
+              action: "payment_completed",
               target: golfer,
               details: "Payment of $#{format('%.2f', payment_amount / 100.0)} completed via Stripe#{golfer.is_employee ? ' (Employee Rate)' : ''}",
               tournament: golfer.tournament
             )
-            
+
             # Mark that we should send emails (only the first request to complete will)
             should_send_emails = true
           end
@@ -354,7 +354,7 @@ module Api
             status: session.status,
             golfer_id: golfer&.id,
             golfer_name: golfer&.name,
-            amount_total: session.amount_total,
+            amount_total: session.amount_total
           }
         rescue Stripe::StripeError => e
           render json: { error: e.message }, status: :not_found
@@ -373,11 +373,11 @@ module Api
         return nil unless tournament
 
         golfer = nil
-        
+
         ActiveRecord::Base.transaction do
           # Lock tournament to prevent race conditions on capacity
           tournament.lock!
-          
+
           # Check if golfer already exists with lock (race condition protection)
           existing = tournament.golfers.lock.find_by(email: metadata.golfer_email)
           if existing
@@ -437,7 +437,7 @@ module Api
       def handle_test_mode_embedded(golfer_data, tournament, is_employee = false, employee_number = nil)
         test_session_id = "test_embedded_#{SecureRandom.hex(16)}"
         entry_fee = is_employee ? (tournament.employee_entry_fee || 5000) : (tournament.entry_fee || 12500)
-        
+
         # Store the golfer data temporarily (we'll create on confirm)
         Rails.cache.write(
           "test_embedded_#{test_session_id}",
@@ -445,7 +445,7 @@ module Api
             tournament_id: tournament.id,
             golfer_data: golfer_data.to_unsafe_h,
             is_employee: is_employee,
-            employee_number: employee_number,
+            employee_number: employee_number
           },
           expires_in: 1.hour
         )
@@ -455,7 +455,7 @@ module Api
           session_id: test_session_id,
           test_mode: true,
           is_employee: is_employee,
-          entry_fee: entry_fee,
+          entry_fee: entry_fee
         }
       end
 
@@ -463,7 +463,7 @@ module Api
       def handle_test_mode_checkout(golfer, setting)
         # Generate a fake session ID
         test_session_id = "test_session_#{SecureRandom.hex(16)}"
-        
+
         # Save it to the golfer
         golfer.update!(stripe_checkout_session_id: test_session_id)
 
@@ -475,7 +475,7 @@ module Api
           checkout_url: "#{frontend_url}/payment/success?session_id=#{test_session_id}",
           session_id: test_session_id,
           golfer_id: golfer.id,
-          test_mode: true,
+          test_mode: true
         }
       end
 
@@ -561,7 +561,7 @@ module Api
           # Log the payment activity
           ActivityLog.log(
             admin: nil,
-            action: 'payment_completed',
+            action: "payment_completed",
             target: golfer,
             details: "Payment of $#{format('%.2f', entry_fee / 100.0)} completed via Stripe (Test Mode)#{golfer.is_employee ? ' (Employee Rate)' : ''}",
             tournament: golfer.tournament

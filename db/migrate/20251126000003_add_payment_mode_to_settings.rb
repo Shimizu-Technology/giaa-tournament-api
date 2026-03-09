@@ -5,4 +5,3 @@ class AddPaymentModeToSettings < ActiveRecord::Migration[8.1]
     # 'production' = real Stripe payments
   end
 end
-

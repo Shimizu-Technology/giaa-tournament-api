@@ -133,7 +133,7 @@ class ActivityLogTest < ActiveSupport::TestCase
       action: "golfer_checked_in",
       created_at: Time.current
     )
-    
+
     today_logs = ActivityLog.today
     assert today_logs.all? { |l| l.created_at.to_date == Date.current }
   end
@@ -152,7 +152,7 @@ class ActivityLogTest < ActiveSupport::TestCase
       settings_updated admin_created admin_deleted
       payment_link_sent payment_completed employee_status_changed
     ]
-    
+
     expected_actions.each do |action|
       assert_includes ActivityLog::ACTIONS, action, "Missing action: #{action}"
     end

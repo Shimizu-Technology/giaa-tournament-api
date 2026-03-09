@@ -54,7 +54,7 @@ class SettingTest < ActiveSupport::TestCase
   end
 
   test "test_mode? returns true when payment_mode is test" do
-    setting = Setting.new(payment_mode: 'test')
+    setting = Setting.new(payment_mode: "test")
     assert setting.test_mode?
   end
 
@@ -64,7 +64,7 @@ class SettingTest < ActiveSupport::TestCase
   end
 
   test "production_mode? returns true when payment_mode is production" do
-    setting = Setting.new(payment_mode: 'production')
+    setting = Setting.new(payment_mode: "production")
     assert setting.production_mode?
   end
 end

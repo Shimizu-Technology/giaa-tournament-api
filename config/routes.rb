@@ -43,7 +43,7 @@ Rails.application.routes.draw do
           post :bulk_send_payment_links
         end
       end
-      
+
       # Payment Links (public endpoints)
       get "payment_links/:token" => "payment_links#show"
       post "payment_links/:token/checkout" => "payment_links#create_checkout"
@@ -70,18 +70,18 @@ Rails.application.routes.draw do
       end
 
       # Settings (singleton resource)
-      resource :settings, only: [:show, :update]
+      resource :settings, only: [ :show, :update ]
 
       # Activity Logs
-      resources :activity_logs, only: [:index] do
+      resources :activity_logs, only: [ :index ] do
         collection do
           get :summary
-          get 'golfer/:golfer_id', action: :golfer_history, as: :golfer_history
+          get "golfer/:golfer_id", action: :golfer_history, as: :golfer_history
         end
       end
 
       # Employee Numbers
-      resources :employee_numbers, only: [:index, :create, :update, :destroy] do
+      resources :employee_numbers, only: [ :index, :create, :update, :destroy ] do
         member do
           post :release
         end

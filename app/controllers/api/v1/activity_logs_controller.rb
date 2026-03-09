@@ -8,7 +8,7 @@ module Api
         # Filter by tournament
         if params[:tournament_id].present?
           logs = logs.for_tournament(params[:tournament_id])
-        elsif params[:all_tournaments] != 'true'
+        elsif params[:all_tournaments] != "true"
           # Default to current tournament
           tournament = Tournament.current
           logs = logs.for_tournament(tournament&.id) if tournament
@@ -31,16 +31,16 @@ module Api
 
         # Filter by date range
         if params[:start_date].present?
-          logs = logs.where('created_at >= ?', Date.parse(params[:start_date]).beginning_of_day)
+          logs = logs.where("created_at >= ?", Date.parse(params[:start_date]).beginning_of_day)
         end
         if params[:end_date].present?
-          logs = logs.where('created_at <= ?', Date.parse(params[:end_date]).end_of_day)
+          logs = logs.where("created_at <= ?", Date.parse(params[:end_date]).end_of_day)
         end
 
         # Pagination
         page = (params[:page] || 1).to_i
         per_page = (params[:per_page] || 50).to_i.clamp(1, 100)
-        
+
         total = logs.count
         logs = logs.offset((page - 1) * per_page).limit(per_page)
 
@@ -60,7 +60,7 @@ module Api
       def golfer_history
         golfer = Golfer.find(params[:golfer_id])
         logs = ActivityLog
-          .where(target_type: 'Golfer', target_id: golfer.id)
+          .where(target_type: "Golfer", target_id: golfer.id)
           .or(ActivityLog.where("metadata->>'golfer_name' = ?", golfer.name))
           .recent
           .includes(:admin)
@@ -84,22 +84,22 @@ module Api
         base_scope = tournament ? ActivityLog.for_tournament(tournament.id) : ActivityLog
 
         today_count = base_scope.today.count
-        
+
         # Activity by action type
         by_action = base_scope.group(:action).count
-        
+
         # Activity by admin (top 10)
         by_admin = base_scope
           .joins(:admin)
-          .group('admins.name')
-          .order('count_all DESC')
+          .group("admins.name")
+          .order("count_all DESC")
           .limit(10)
           .count
 
         # Recent activity (last 7 days by day)
         seven_days_ago = 7.days.ago.beginning_of_day
         daily_activity = base_scope
-          .where('created_at >= ?', seven_days_ago)
+          .where("created_at >= ?", seven_days_ago)
           .group("DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Pacific/Guam')")
           .count
 

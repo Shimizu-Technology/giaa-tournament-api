@@ -32,7 +32,7 @@ module Authenticated
     Rails.logger.info "Clerk ID: #{clerk_id}"
     Rails.logger.info "Email from token: #{email.inspect}"
     Rails.logger.info "All decoded fields: #{decoded.keys.join(', ')}"
-    
+
     unless clerk_id
       render_unauthorized("Invalid token payload")
       return
@@ -48,14 +48,14 @@ module Authenticated
     end
 
     # Extract name from Clerk token
-    clerk_name = decoded["name"] || decoded["first_name"] || 
-                 [decoded["first_name"], decoded["last_name"]].compact.join(' ').presence
+    clerk_name = decoded["name"] || decoded["first_name"] ||
+                 [ decoded["first_name"], decoded["last_name"] ].compact.join(" ").presence
 
     # Update admin record if needed
     updates = {}
     updates[:clerk_id] = clerk_id if @current_admin.clerk_id.nil?
     updates[:name] = clerk_name if @current_admin.name.blank? && clerk_name.present?
-    
+
     if updates.any?
       @current_admin.update!(updates)
       Rails.logger.info "Updated admin: #{updates.inspect}"
@@ -78,4 +78,3 @@ module Authenticated
     end
   end
 end
-

@@ -59,7 +59,7 @@ class ActivityLog < ApplicationRecord
 
     # Try to infer tournament from target if not provided
     inferred_tournament = tournament || (target.respond_to?(:tournament) ? target.tournament : nil)
-    
+
     create!(
       admin: admin,
       action: action,
@@ -71,9 +71,9 @@ class ActivityLog < ApplicationRecord
       metadata: enriched_metadata
     )
   end
-  
+
   # Get the display name for the admin who performed this action
   def admin_display_name
-    admin&.name.presence || admin&.email || metadata&.dig('admin_email') || 'System'
+    admin&.name.presence || admin&.email || metadata&.dig("admin_email") || "System"
   end
 end

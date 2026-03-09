@@ -15,7 +15,7 @@ class Api::V1::SettingsControllerTest < ActionDispatch::IntegrationTest
   test "show returns global settings" do
     get api_v1_settings_url, headers: auth_headers
     assert_response :success
-    
+
     json = JSON.parse(response.body)
     # Global settings should be present
     assert json.key?("stripe_public_key")
@@ -38,9 +38,9 @@ class Api::V1::SettingsControllerTest < ActionDispatch::IntegrationTest
     patch api_v1_settings_url, params: {
       setting: { payment_mode: "production" }
     }, headers: auth_headers
-    
+
     assert_response :success
-    
+
     setting = Setting.instance
     assert_equal "production", setting.payment_mode
   end
@@ -49,9 +49,9 @@ class Api::V1::SettingsControllerTest < ActionDispatch::IntegrationTest
     patch api_v1_settings_url, params: {
       setting: { admin_email: "new-admin@test.com" }
     }, headers: auth_headers
-    
+
     assert_response :success
-    
+
     setting = Setting.instance
     assert_equal "new-admin@test.com", setting.admin_email
   end
@@ -63,9 +63,9 @@ class Api::V1::SettingsControllerTest < ActionDispatch::IntegrationTest
         stripe_secret_key: "sk_test_new"
       }
     }, headers: auth_headers
-    
+
     assert_response :success
-    
+
     setting = Setting.instance
     assert_equal "pk_test_new", setting.stripe_public_key
     assert_equal "sk_test_new", setting.stripe_secret_key
@@ -77,7 +77,7 @@ class Api::V1::SettingsControllerTest < ActionDispatch::IntegrationTest
         setting: { payment_mode: "production" }
       }, headers: auth_headers
     end
-    
+
     log = ActivityLog.last
     assert_equal "settings_updated", log.action
   end

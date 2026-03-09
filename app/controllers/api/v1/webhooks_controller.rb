@@ -129,7 +129,7 @@ module Api
 
       def handle_payment_intent_failed(payment_intent)
         Rails.logger.error("Payment intent failed: #{payment_intent.id}")
-        
+
         # Find the golfer by payment intent ID if we have it
         golfer = Golfer.find_by(stripe_payment_intent_id: payment_intent.id)
         return unless golfer
@@ -142,4 +142,3 @@ module Api
     end
   end
 end
-
