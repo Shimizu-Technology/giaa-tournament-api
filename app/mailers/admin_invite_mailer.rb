@@ -2,7 +2,7 @@ class AdminInviteMailer < ApplicationMailer
   def invitation_email(admin, invited_by_name)
     @admin = admin
     @invited_by_name = invited_by_name
-    @frontend_url = ENV.fetch("FRONTEND_URL", "https://app.shimizu-technology.com")
+    @frontend_url = ENV.fetch("FRONTEND_URL") # No fallback — fail loud if misconfigured
 
     mail(
       to: admin.email,

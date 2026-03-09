@@ -49,8 +49,12 @@ module Api
             target: admin,
             details: "Added new admin: #{admin.email}"
           )
-          inviter_name = current_admin.name.presence || current_admin.email
-          AdminInviteMailer.invitation_email(admin, inviter_name).deliver_later
+          begin
+            inviter_name = current_admin.name.presence || current_admin.email
+            AdminInviteMailer.invitation_email(admin, inviter_name).deliver_later
+          rescue StandardError => e
+            Rails.logger.error "AdminInviteMailer failed: #{e.message}"
+          end
           render json: admin, status: :created
         else
           render json: { errors: admin.errors.full_messages }, status: :unprocessable_entity

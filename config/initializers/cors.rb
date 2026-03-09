@@ -8,8 +8,8 @@
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
     # Allow requests from localhost during development and production domains
-    origins "localhost:3000", "localhost:5173", "localhost:5174", 
-            "127.0.0.1:3000", "127.0.0.1:5173", "127.0.0.1:5174",
+    origins "localhost:3000", "localhost:5173", "localhost:5174", "localhost:5176",
+            "127.0.0.1:3000", "127.0.0.1:5173", "127.0.0.1:5174", "127.0.0.1:5176",
             # Production frontend URLs (explicitly listed)
             "https://giaa-tournament.com",
             "https://www.giaa-tournament.com",
