@@ -11,18 +11,12 @@ end
 puts "✅ Settings created (capacity: #{setting.max_capacity})"
 
 # Create admin
-admin = Admin.find_or_create_by!(email: "shimizutechnology@gmail.com") do |a|
-  a.name = "Leon Shimizu"
+admin_email = ENV.fetch("DEMO_ADMIN_EMAIL", "admin@demo.giaa-tournament.com")
+admin = Admin.find_or_create_by!(email: admin_email) do |a|
+  a.name = "Demo Admin"
   a.role = "admin"
 end
 puts "✅ Admin created: #{admin.email}"
-
-# Also add Jerry as admin
-jerry = Admin.find_or_create_by!(email: "jerry.shimizutechnology@gmail.com") do |a|
-  a.name = "Jerry"
-  a.role = "admin"
-end
-puts "✅ Admin created: #{jerry.email}"
 
 # Create demo tournament
 tournament = Tournament.find_or_create_by!(name: "Island Charity Golf Classic") do |t|
@@ -97,7 +91,7 @@ demo_golfers = [
   { name: "Henry Lujan", company: "Guam Waterworks", email: "h.lujan@example.com", phone: "(671) 555-0137", payment_type: "stripe", payment_status: "paid", checked_in: false },
   { name: "Oscar Benavente", company: "Guam Waterworks", email: "o.benavente@example.com", phone: "(671) 555-0138", payment_type: "stripe", payment_status: "paid", checked_in: false },
   { name: "Larry Toves", company: "Chamorro Village Co", email: "l.toves@example.com", phone: "(671) 555-0139", payment_type: "pay_on_day", payment_status: "unpaid", checked_in: false },
-  { name: "Nelson Quenga", company: "Chamorro Village Co", email: "n.quenga@example.com", phone: "(671) 555-0140", payment_type: "pay_on_day", payment_status: "unpaid", checked_in: false },
+  { name: "Nelson Quenga", company: "Chamorro Village Co", email: "n.quenga@example.com", phone: "(671) 555-0140", payment_type: "pay_on_day", payment_status: "unpaid", checked_in: false }
 ]
 
 demo_golfers.each do |attrs|
@@ -153,7 +147,7 @@ if defined?(ActivityLog)
     { action: "golfer_checked_in", details: "Michael Santos checked in at registration desk", admin_id: admin.id },
     { action: "group_assigned", details: "Group 1 assigned to Hole 1", admin_id: admin.id },
     { action: "golfer_registered", details: "Frank Paulino registered (pay on day)", admin_id: nil },
-    { action: "settings_updated", details: "Registration capacity updated to 144", admin_id: admin.id },
+    { action: "settings_updated", details: "Registration capacity updated to 144", admin_id: admin.id }
   ].each do |log_attrs|
     ActivityLog.create!(
       action: log_attrs[:action],
