@@ -49,6 +49,8 @@ module Api
             target: admin,
             details: "Added new admin: #{admin.email}"
           )
+          inviter_name = current_admin.name.presence || current_admin.email
+          AdminInviteMailer.invitation_email(admin, inviter_name).deliver_later
           render json: admin, status: :created
         else
           render json: { errors: admin.errors.full_messages }, status: :unprocessable_entity
