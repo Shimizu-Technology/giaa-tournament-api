@@ -12,4 +12,3 @@ else
     Rails.application.config.action_mailer.delivery_method = :test
   end
 end
-

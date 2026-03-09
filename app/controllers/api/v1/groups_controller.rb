@@ -29,7 +29,7 @@ module Api
         if group.save
           ActivityLog.log(
             admin: current_admin,
-            action: 'group_created',
+            action: "group_created",
             target: group,
             details: "Created Hole #{group.hole_position_label}",
             metadata: { hole_number: group.hole_number, group_number: group.group_number }
@@ -50,7 +50,7 @@ module Api
           if old_hole != group.hole_number
             ActivityLog.log(
               admin: current_admin,
-              action: 'group_updated',
+              action: "group_updated",
               target: group,
               details: "Moved group to Hole #{group.hole_position_label} (was Hole #{old_hole || 'unassigned'})",
               metadata: { previous_hole: old_hole, new_hole: group.hole_number, group_number: group.group_number }
@@ -75,16 +75,16 @@ module Api
 
         hole_label = group.hole_position_label
         group.destroy
-        
+
         ActivityLog.log(
           admin: current_admin,
-          action: 'group_deleted',
+          action: "group_deleted",
           target: nil,
           tournament: tournament,
           details: "Deleted Hole #{hole_label}",
           metadata: { group_number: group_number, hole_label: hole_label, removed_golfers: golfer_names }
         )
-        
+
         broadcast_groups_update(tournament)
         head :no_content
       end
@@ -102,7 +102,7 @@ module Api
         if group.update(hole_number: params[:hole_number])
           ActivityLog.log(
             admin: current_admin,
-            action: 'group_updated',
+            action: "group_updated",
             target: group,
             details: "Assigned to Hole #{group.hole_position_label}",
             metadata: { previous_hole: old_hole, new_hole: group.hole_number, group_number: group.group_number }
@@ -123,13 +123,13 @@ module Api
           render json: { error: "Group is full (max #{Group::MAX_GOLFERS} golfers)" }, status: :unprocessable_entity
           return
         end
-        
+
         # Prevent adding cancelled or waitlist golfers to groups
         if golfer.registration_status == "cancelled"
           render json: { error: "Cannot add cancelled golfer to a group" }, status: :unprocessable_entity
           return
         end
-        
+
         if golfer.registration_status == "waitlist"
           render json: { error: "Cannot add waitlist golfer to a group. Promote them to confirmed first." }, status: :unprocessable_entity
           return
@@ -138,7 +138,7 @@ module Api
         if group.add_golfer(golfer)
           ActivityLog.log(
             admin: current_admin,
-            action: 'golfer_assigned_to_group',
+            action: "golfer_assigned_to_group",
             target: golfer,
             details: "Added #{golfer.name} to Hole #{group.hole_position_label}",
             metadata: { group_id: group.id, group_number: group.group_number, hole_label: group.hole_position_label }
@@ -162,15 +162,15 @@ module Api
 
         hole_label = group.hole_position_label
         group.remove_golfer(golfer)
-        
+
         ActivityLog.log(
           admin: current_admin,
-          action: 'golfer_removed_from_group',
+          action: "golfer_removed_from_group",
           target: golfer,
           details: "Removed #{golfer.name} from Hole #{hole_label}",
           metadata: { group_id: group.id, group_number: group.group_number, hole_label: hole_label }
         )
-        
+
         broadcast_groups_update(group.tournament)
         render json: group, include: "golfers"
       end
@@ -281,7 +281,7 @@ module Api
 
       def broadcast_groups_update(tournament)
         return unless tournament
-        
+
         groups = tournament.groups.with_golfers
         ActionCable.server.broadcast("groups_channel", {
           action: "updated",

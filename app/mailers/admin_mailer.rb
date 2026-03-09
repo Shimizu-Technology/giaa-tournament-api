@@ -12,7 +12,7 @@ class AdminMailer < ApplicationMailer
 
     return unless admin_emails.any?
 
-    subject = @is_employee ? 
+    subject = @is_employee ?
       "New Employee Registration: #{golfer.name}" :
       "New Golf Tournament Registration: #{golfer.name}"
 
@@ -88,4 +88,3 @@ class AdminMailer < ApplicationMailer
     end
   end
 end
-

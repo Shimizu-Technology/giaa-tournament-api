@@ -1,0 +1,20 @@
+Golf Tournament Admin Portal
+============================
+
+You've been invited!
+
+Hi<% if @admin.name.present? %> <%= @admin.name.split(' ').first %><% end %>,
+
+<%= @invited_by_name %> has invited you to join the tournament admin portal. You'll have access to manage tournaments, registrations, golfer data, and more.
+
+Get Started: <%= @frontend_url %>
+
+How to get started:
+Click the link above, then sign up or log in with this email address (<%= @admin.email %>) to access the admin dashboard.
+
+---
+
+This invitation was sent to <%= @admin.email %>
+Powered by Shimizu Technology
+
+© <%= Time.current.year %> Shimizu Technology · Guam

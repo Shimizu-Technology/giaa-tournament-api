@@ -2,8 +2,8 @@ module Api
   module V1
     class EmployeeNumbersController < ApplicationController
       include Authenticated
-      before_action :authenticate_admin!, except: [:validate]
-      skip_before_action :verify_authenticity_token, only: [:validate], raise: false
+      before_action :authenticate_admin!, except: [ :validate ]
+      skip_before_action :verify_authenticity_token, only: [ :validate ], raise: false
 
       # GET /api/v1/employee_numbers
       def index
@@ -11,7 +11,7 @@ module Api
         return render_tournament_required unless tournament
 
         employee_numbers = tournament.employee_numbers.includes(:used_by_golfer).order(:employee_number)
-        
+
         render json: {
           employee_numbers: ActiveModelSerializers::SerializableResource.new(employee_numbers),
           stats: {
@@ -32,7 +32,7 @@ module Api
         if employee_number.save
           ActivityLog.log(
             admin: current_admin,
-            action: 'employee_number_created',
+            action: "employee_number_created",
             target: employee_number,
             details: "Added employee number: #{employee_number.employee_number}",
             tournament: tournament
@@ -69,7 +69,7 @@ module Api
         if created.any?
           ActivityLog.log(
             admin: current_admin,
-            action: 'employee_numbers_bulk_created',
+            action: "employee_numbers_bulk_created",
             target: tournament,
             details: "Added #{created.count} employee numbers",
             tournament: tournament,
@@ -91,7 +91,7 @@ module Api
         if employee_number.update(employee_number_params)
           ActivityLog.log(
             admin: current_admin,
-            action: 'employee_number_updated',
+            action: "employee_number_updated",
             target: employee_number,
             details: "Updated employee number: #{employee_number.employee_number}",
             tournament: employee_number.tournament
@@ -108,8 +108,8 @@ module Api
         tournament = employee_number.tournament
 
         if employee_number.used?
-          return render json: { 
-            error: "Cannot delete an employee number that has been used. It was used by #{employee_number.used_by_golfer&.name}." 
+          return render json: {
+            error: "Cannot delete an employee number that has been used. It was used by #{employee_number.used_by_golfer&.name}."
           }, status: :unprocessable_entity
         end
 
@@ -117,7 +117,7 @@ module Api
 
         ActivityLog.log(
           admin: current_admin,
-          action: 'employee_number_deleted',
+          action: "employee_number_deleted",
           target: nil,
           details: "Deleted employee number: #{employee_number.employee_number}",
           tournament: tournament
@@ -140,7 +140,7 @@ module Api
 
         ActivityLog.log(
           admin: current_admin,
-          action: 'employee_number_released',
+          action: "employee_number_released",
           target: employee_number,
           details: "Released employee number: #{employee_number.employee_number} (was used by #{golfer_name})",
           tournament: employee_number.tournament
@@ -156,10 +156,10 @@ module Api
         return render json: { valid: false, error: "No active tournament" }, status: :not_found unless tournament
 
         result = tournament.validate_employee_number(params[:employee_number])
-        
+
         if result[:valid]
-          render json: { 
-            valid: true, 
+          render json: {
+            valid: true,
             employee_fee: tournament.employee_entry_fee,
             employee_fee_dollars: tournament.employee_entry_fee_dollars,
             message: "Valid employee number - discounted rate applies"
@@ -189,4 +189,3 @@ module Api
     end
   end
 end
-

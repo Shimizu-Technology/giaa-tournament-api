@@ -1,7 +1,7 @@
 module Api
   module V1
     class GolfersController < BaseController
-      skip_before_action :authenticate_admin!, only: [:create, :registration_status]
+      skip_before_action :authenticate_admin!, only: [ :create, :registration_status ]
 
       # GET /api/v1/golfers
       def index
@@ -65,9 +65,9 @@ module Api
       def create
         # Find the current open tournament
         tournament = Tournament.current
-        
+
         unless tournament
-          render json: { errors: ["No tournament is currently open for registration."] }, status: :unprocessable_entity
+          render json: { errors: [ "No tournament is currently open for registration." ] }, status: :unprocessable_entity
           return
         end
 
@@ -78,10 +78,10 @@ module Api
         ActiveRecord::Base.transaction do
           # Lock the tournament row to prevent concurrent capacity checks
           tournament.lock!
-          
+
           # Re-check registration status after acquiring lock
           unless tournament.can_register?
-            error_response = { errors: ["Registration is currently closed."], status: :unprocessable_entity }
+            error_response = { errors: [ "Registration is currently closed." ], status: :unprocessable_entity }
             raise ActiveRecord::Rollback
           end
 
@@ -90,17 +90,17 @@ module Api
           if params[:employee_number].present?
             # Lock the employee number record to prevent double-use
             emp_record = tournament.employee_numbers.lock.find_by(employee_number: params[:employee_number])
-            
+
             unless emp_record
-              error_response = { errors: ["Invalid employee number"], status: :unprocessable_entity }
+              error_response = { errors: [ "Invalid employee number" ], status: :unprocessable_entity }
               raise ActiveRecord::Rollback
             end
-            
+
             if emp_record.used?
-              error_response = { errors: ["This employee number has already been used"], status: :unprocessable_entity }
+              error_response = { errors: [ "This employee number has already been used" ], status: :unprocessable_entity }
               raise ActiveRecord::Rollback
             end
-            
+
             employee_number_record = emp_record
           end
 
@@ -149,7 +149,7 @@ module Api
       # PATCH /api/v1/golfers/:id
       def update
         golfer = Golfer.find(params[:id])
-        old_values = golfer.attributes.slice('group_id', 'payment_status', 'registration_status', 'name', 'email', 'phone', 'company', 'address', 'payment_notes')
+        old_values = golfer.attributes.slice("group_id", "payment_status", "registration_status", "name", "email", "phone", "company", "address", "payment_notes")
 
         if golfer.update(golfer_update_params)
           # Log activity for meaningful changes
@@ -170,16 +170,16 @@ module Api
         golfer_name = golfer.name
         tournament = golfer.tournament
         golfer.destroy
-        
+
         ActivityLog.log(
           admin: current_admin,
-          action: 'golfer_deleted',
+          action: "golfer_deleted",
           target: nil,
           tournament: tournament,
           details: "Deleted golfer: #{golfer_name}",
           metadata: { golfer_name: golfer_name }
         )
-        
+
         broadcast_golfer_update(golfer, action: "deleted")
         head :no_content
       end
@@ -202,24 +202,24 @@ module Api
 
         reason = params[:reason]
         old_group = golfer.group
-        
+
         # CRITICAL: Remove from group first (cancelled golfers shouldn't hold spots)
         if old_group.present?
           golfer.update!(group_id: nil)
         end
-        
+
         # CRITICAL: Cancel the golfer
         golfer.cancel!(admin: current_admin, reason: reason)
 
         # CRITICAL: Return success response FIRST before non-critical operations
         render json: golfer
-        
+
         # NON-CRITICAL: Log group removal
         if old_group.present?
           begin
             ActivityLog.log(
               admin: current_admin,
-              action: 'golfer_removed_from_group',
+              action: "golfer_removed_from_group",
               target: golfer,
               details: "Removed #{golfer.name} from Hole #{old_group.hole_position_label} (cancelled)"
             )
@@ -239,7 +239,7 @@ module Api
         begin
           ActivityLog.log(
             admin: current_admin,
-            action: 'golfer_cancelled',
+            action: "golfer_cancelled",
             target: golfer,
             details: "Cancelled registration for #{golfer.name}",
             metadata: { reason: reason }
@@ -278,7 +278,7 @@ module Api
           if old_group.present?
             golfer.update!(group_id: nil)
           end
-          
+
           # CRITICAL: Process the refund through Stripe
           stripe_refund = golfer.process_refund!(admin: current_admin, reason: reason)
 
@@ -300,7 +300,7 @@ module Api
             begin
               ActivityLog.log(
                 admin: current_admin,
-                action: 'golfer_removed_from_group',
+                action: "golfer_removed_from_group",
                 target: golfer,
                 details: "Removed #{golfer.name} from Hole #{old_group.hole_position_label} (refunded)"
               )
@@ -313,11 +313,11 @@ module Api
           begin
             ActivityLog.log(
               admin: current_admin,
-              action: 'golfer_refunded',
+              action: "golfer_refunded",
               target: golfer,
               details: "Refunded #{golfer.name} - $#{'%.2f' % (stripe_refund.amount / 100.0)}",
-              metadata: { 
-                reason: reason, 
+              metadata: {
+                reason: reason,
                 refund_id: stripe_refund.id,
                 amount_cents: stripe_refund.amount
               }
@@ -376,13 +376,13 @@ module Api
 
         # CRITICAL: Return success response FIRST
         render json: golfer
-        
+
         # NON-CRITICAL: Log group removal if applicable
         if old_group.present?
           begin
             ActivityLog.log(
               admin: current_admin,
-              action: 'golfer_removed_from_group',
+              action: "golfer_removed_from_group",
               target: golfer,
               details: "Removed #{golfer.name} from Hole #{old_group.hole_position_label} (refunded)"
             )
@@ -402,7 +402,7 @@ module Api
         begin
           ActivityLog.log(
             admin: current_admin,
-            action: 'golfer_refunded',
+            action: "golfer_refunded",
             target: golfer,
             details: "Marked #{golfer.name} as refunded (manual) - $#{'%.2f' % (refund_amount.to_i / 100.0)}",
             metadata: { reason: reason, amount_cents: refund_amount }
@@ -423,7 +423,7 @@ module Api
 
         ActivityLog.log(
           admin: current_admin,
-          action: was_checked_in ? 'golfer_unchecked' : 'golfer_checked_in',
+          action: was_checked_in ? "golfer_unchecked" : "golfer_checked_in",
           target: golfer,
           details: was_checked_in ? "Unchecked #{golfer.name}" : "Checked in #{golfer.name}"
         )
@@ -436,7 +436,7 @@ module Api
       def payment_details
         golfer = Golfer.find(params[:id])
         old_status = golfer.payment_status
-        
+
         # Calculate the payment amount based on employee status
         tournament = golfer.tournament
         payment_amount = if golfer.is_employee
@@ -456,7 +456,7 @@ module Api
 
         ActivityLog.log(
           admin: current_admin,
-          action: 'payment_marked',
+          action: "payment_marked",
           target: golfer,
           details: "Marked #{golfer.name} as paid (#{params[:payment_method]}) - $#{format('%.2f', payment_amount / 100.0)}#{golfer.is_employee ? ' (Employee Rate)' : ''}",
           metadata: {
@@ -492,7 +492,7 @@ module Api
 
         ActivityLog.log(
           admin: current_admin,
-          action: 'golfer_promoted',
+          action: "golfer_promoted",
           target: golfer,
           details: "Promoted #{golfer.name} from waitlist to confirmed"
         )
@@ -512,13 +512,13 @@ module Api
         end
 
         old_group = golfer.group
-        
+
         # Remove from group (waitlist golfers shouldn't hold group spots)
         if old_group.present?
           golfer.update!(group_id: nil)
           ActivityLog.log(
             admin: current_admin,
-            action: 'golfer_removed_from_group',
+            action: "golfer_removed_from_group",
             target: golfer,
             details: "Removed #{golfer.name} from Hole #{old_group.hole_position_label} (demoted to waitlist)"
           )
@@ -528,10 +528,10 @@ module Api
 
         ActivityLog.log(
           admin: current_admin,
-          action: 'golfer_demoted',
+          action: "golfer_demoted",
           target: golfer,
           details: "Moved #{golfer.name} to waitlist",
-          metadata: { previous_status: 'confirmed', new_status: 'waitlist' }
+          metadata: { previous_status: "confirmed", new_status: "waitlist" }
         )
 
         broadcast_golfer_update(golfer)
@@ -564,7 +564,7 @@ module Api
 
         ActivityLog.log(
           admin: current_admin,
-          action: 'payment_link_sent',
+          action: "payment_link_sent",
           target: golfer,
           details: "Sent payment link to #{golfer.name}",
           metadata: { email: golfer.email }
@@ -590,10 +590,10 @@ module Api
 
         old_status = golfer.payment_status
 
-        if new_status == 'unpaid'
+        if new_status == "unpaid"
           # Clear payment details when marking as unpaid (but keep payment_type)
           golfer.update!(
-            payment_status: 'unpaid',
+            payment_status: "unpaid",
             payment_method: nil,
             receipt_number: nil,
             payment_notes: nil,
@@ -601,10 +601,10 @@ module Api
           )
         else
           golfer.update!(
-            payment_status: 'paid',
+            payment_status: "paid",
             paid_at: Time.current
           )
-          
+
           # Send payment confirmation email when marking as paid
           if golfer.email.present?
             GolferMailer.payment_confirmation_email(golfer).deliver_later
@@ -613,7 +613,7 @@ module Api
 
         ActivityLog.log(
           admin: current_admin,
-          action: 'payment_updated',
+          action: "payment_updated",
           target: golfer,
           details: "Changed #{golfer.name} payment status from #{old_status} to #{new_status}",
           metadata: { previous_status: old_status, new_status: new_status }
@@ -633,15 +633,15 @@ module Api
         golfer.update!(is_employee: !old_status)
 
         action_text = golfer.is_employee ? "marked as employee" : "removed employee status"
-        
+
         ActivityLog.log(
           admin: current_admin,
-          action: 'employee_status_changed',
+          action: "employee_status_changed",
           target: golfer,
           details: "#{golfer.name} #{action_text}",
-          metadata: { 
-            previous_status: old_status, 
-            new_status: golfer.is_employee 
+          metadata: {
+            previous_status: old_status,
+            new_status: golfer.is_employee
           }
         )
 
@@ -661,7 +661,7 @@ module Api
           return
         end
 
-        unless [true, false].include?(is_employee)
+        unless [ true, false ].include?(is_employee)
           render json: { error: "is_employee must be true or false" }, status: :unprocessable_entity
           return
         end
@@ -671,7 +671,7 @@ module Api
         return render_tournament_required unless tournament
 
         golfers = tournament.golfers.where(id: golfer_ids)
-        
+
         if golfers.empty?
           render json: { error: "No matching golfers found" }, status: :not_found
           return
@@ -691,14 +691,14 @@ module Api
           end
 
           # Skip if already paid - can't change rate after payment
-          if golfer.payment_status == 'paid'
+          if golfer.payment_status == "paid"
             skipped_count += 1
             skipped_reasons << { name: golfer.name, reason: "already paid" }
             next
           end
 
           # Skip if refunded - registration is cancelled
-          if golfer.payment_status == 'refunded' || golfer.registration_status == 'cancelled'
+          if golfer.payment_status == "refunded" || golfer.registration_status == "cancelled"
             skipped_count += 1
             skipped_reasons << { name: golfer.name, reason: "cancelled/refunded" }
             next
@@ -712,11 +712,11 @@ module Api
           action_text_single = is_employee ? "marked as employee" : "removed employee status"
           ActivityLog.log(
             admin: current_admin,
-            action: 'employee_status_changed',
+            action: "employee_status_changed",
             target: golfer,
             details: "#{golfer.name} #{action_text_single} (bulk action)",
-            metadata: { 
-              previous_status: !is_employee, 
+            metadata: {
+              previous_status: !is_employee,
               new_status: is_employee,
               bulk_action: true
             }
@@ -753,7 +753,7 @@ module Api
         return render_tournament_required unless tournament
 
         golfers = tournament.golfers.where(id: golfer_ids)
-        
+
         if golfers.empty?
           render json: { error: "No matching golfers found" }, status: :not_found
           return
@@ -798,10 +798,10 @@ module Api
           # Log for each golfer individually (shows in their activity history)
           ActivityLog.log(
             admin: current_admin,
-            action: 'payment_link_sent',
+            action: "payment_link_sent",
             target: golfer,
             details: "Sent payment link to #{golfer.name} (bulk action)",
-            metadata: { 
+            metadata: {
               email: golfer.email,
               bulk_action: true,
               resend: !first_time_sending
@@ -882,17 +882,17 @@ module Api
         return render_tournament_required unless tournament
 
         # Exclude cancelled golfers from active counts
-        active_golfers = tournament.golfers.where.not(registration_status: 'cancelled')
-        
+        active_golfers = tournament.golfers.where.not(registration_status: "cancelled")
+
         render json: {
           tournament_id: tournament.id,
           tournament_name: tournament.name,
           total: active_golfers.count,
           confirmed: tournament.confirmed_count,
           waitlist: tournament.waitlist_count,
-          cancelled: tournament.golfers.where(registration_status: 'cancelled').count,
-          paid: active_golfers.where(payment_status: 'paid').count,
-          unpaid: active_golfers.where.not(payment_status: 'paid').count,
+          cancelled: tournament.golfers.where(registration_status: "cancelled").count,
+          paid: active_golfers.where(payment_status: "paid").count,
+          unpaid: active_golfers.where.not(payment_status: "paid").count,
           checked_in: active_golfers.where.not(checked_in_at: nil).count,
           not_checked_in: active_golfers.where(checked_in_at: nil).count,
           assigned_to_groups: active_golfers.where.not(group_id: nil).count,
@@ -960,68 +960,68 @@ module Api
         return unless current_admin
 
         # Check for group assignment changes
-        if old_values['group_id'] != golfer.group_id
-          if golfer.group_id.present? && old_values['group_id'].nil?
+        if old_values["group_id"] != golfer.group_id
+          if golfer.group_id.present? && old_values["group_id"].nil?
             ActivityLog.log(
               admin: current_admin,
-              action: 'golfer_assigned_to_group',
+              action: "golfer_assigned_to_group",
               target: golfer,
               details: "Assigned #{golfer.name} to Hole #{golfer.group&.hole_position_label}",
               metadata: { group_id: golfer.group_id, hole_label: golfer.group&.hole_position_label }
             )
-          elsif golfer.group_id.nil? && old_values['group_id'].present?
+          elsif golfer.group_id.nil? && old_values["group_id"].present?
             ActivityLog.log(
               admin: current_admin,
-              action: 'golfer_removed_from_group',
+              action: "golfer_removed_from_group",
               target: golfer,
               details: "Removed #{golfer.name} from group",
-              metadata: { previous_group_id: old_values['group_id'] }
+              metadata: { previous_group_id: old_values["group_id"] }
             )
           elsif golfer.group_id.present?
             ActivityLog.log(
               admin: current_admin,
-              action: 'golfer_assigned_to_group',
+              action: "golfer_assigned_to_group",
               target: golfer,
               details: "Moved #{golfer.name} to Hole #{golfer.group&.hole_position_label}",
-              metadata: { 
-                group_id: golfer.group_id, 
+              metadata: {
+                group_id: golfer.group_id,
                 hole_label: golfer.group&.hole_position_label,
-                previous_group_id: old_values['group_id']
+                previous_group_id: old_values["group_id"]
               }
             )
           end
         end
 
         # Check for payment status changes
-        if old_values['payment_status'] != golfer.payment_status
+        if old_values["payment_status"] != golfer.payment_status
           ActivityLog.log(
             admin: current_admin,
-            action: 'payment_updated',
+            action: "payment_updated",
             target: golfer,
             details: "Changed #{golfer.name} payment status from #{old_values['payment_status']} to #{golfer.payment_status}",
             metadata: {
-              previous_status: old_values['payment_status'],
+              previous_status: old_values["payment_status"],
               new_status: golfer.payment_status
             }
           )
         end
 
         # Check for payment notes changes
-        if old_values['payment_notes'] != golfer.payment_notes
-          old_notes = old_values['payment_notes'].presence || '(empty)'
-          new_notes = golfer.payment_notes.presence || '(empty)'
-          
+        if old_values["payment_notes"] != golfer.payment_notes
+          old_notes = old_values["payment_notes"].presence || "(empty)"
+          new_notes = golfer.payment_notes.presence || "(empty)"
+
           # Truncate for display in details (keep full in metadata)
           old_notes_display = old_notes.length > 50 ? "#{old_notes[0..47]}..." : old_notes
           new_notes_display = new_notes.length > 50 ? "#{new_notes[0..47]}..." : new_notes
-          
+
           ActivityLog.log(
             admin: current_admin,
-            action: 'payment_notes_updated',
+            action: "payment_notes_updated",
             target: golfer,
             details: "Updated payment notes for #{golfer.name}",
             metadata: {
-              previous_notes: old_values['payment_notes'],
+              previous_notes: old_values["payment_notes"],
               new_notes: golfer.payment_notes
             }
           )
@@ -1030,23 +1030,23 @@ module Api
         # Check for contact info changes
         contact_fields = %w[name email phone company address]
         changed_fields = contact_fields.select { |field| old_values[field] != golfer.send(field) }
-        
+
         if changed_fields.any?
           changes = changed_fields.map do |field|
-            old_val = old_values[field].presence || '(empty)'
-            new_val = golfer.send(field).presence || '(empty)'
+            old_val = old_values[field].presence || "(empty)"
+            new_val = golfer.send(field).presence || "(empty)"
             "#{field}: #{old_val} → #{new_val}"
           end
-          
+
           ActivityLog.log(
             admin: current_admin,
-            action: 'golfer_updated',
+            action: "golfer_updated",
             target: golfer,
             details: "Updated #{golfer.name}'s details: #{changed_fields.join(', ')}",
             metadata: {
               changed_fields: changed_fields,
-              changes: changed_fields.each_with_object({}) { |f, h| 
-                h[f] = { from: old_values[f], to: golfer.send(f) } 
+              changes: changed_fields.each_with_object({}) { |f, h|
+                h[f] = { from: old_values[f], to: golfer.send(f) }
               }
             }
           )

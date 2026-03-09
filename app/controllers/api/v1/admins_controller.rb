@@ -26,13 +26,13 @@ module Api
         email = params.dig(:admin, :email)&.downcase&.strip
 
         if email.blank?
-          render json: { errors: ["Email is required"] }, status: :unprocessable_entity
+          render json: { errors: [ "Email is required" ] }, status: :unprocessable_entity
           return
         end
 
         # Check if admin already exists
-        if Admin.exists?(["LOWER(email) = ?", email])
-          render json: { errors: ["An admin with this email already exists"] }, status: :unprocessable_entity
+        if Admin.exists?([ "LOWER(email) = ?", email ])
+          render json: { errors: [ "An admin with this email already exists" ] }, status: :unprocessable_entity
           return
         end
 
@@ -45,10 +45,16 @@ module Api
         if admin.save
           ActivityLog.log(
             admin: current_admin,
-            action: 'admin_created',
+            action: "admin_created",
             target: admin,
             details: "Added new admin: #{admin.email}"
           )
+          begin
+            inviter_name = current_admin.name.presence || current_admin.email
+            AdminInviteMailer.invitation_email(admin, inviter_name).deliver_later
+          rescue StandardError => e
+            Rails.logger.error "AdminInviteMailer failed: #{e.message}"
+          end
           render json: admin, status: :created
         else
           render json: { errors: admin.errors.full_messages }, status: :unprocessable_entity
@@ -84,15 +90,15 @@ module Api
 
         admin_email = admin.email
         admin.destroy
-        
+
         ActivityLog.log(
           admin: current_admin,
-          action: 'admin_deleted',
+          action: "admin_deleted",
           target: nil,
           details: "Removed admin: #{admin_email}",
           metadata: { deleted_email: admin_email }
         )
-        
+
         head :no_content
       end
 
@@ -104,4 +110,3 @@ module Api
     end
   end
 end
-

@@ -2,7 +2,7 @@ class MigrateExistingDataToDefaultTournament < ActiveRecord::Migration[8.1]
   def up
     # Get existing settings to create default tournament
     setting = execute("SELECT * FROM settings LIMIT 1").first
-    
+
     if setting
       # Create default tournament from existing settings
       execute <<-SQL

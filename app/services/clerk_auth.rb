@@ -25,7 +25,7 @@ class ClerkAuth
       return nil if jwks.nil?
 
       decoded = JWT.decode(token, nil, true, {
-        algorithms: ["RS256"],
+        algorithms: [ "RS256" ],
         jwks: jwks
       })
 
@@ -51,12 +51,12 @@ class ClerkAuth
       # Cache JWKS for 1 hour
       Rails.cache.fetch("clerk_jwks", expires_in: 1.hour) do
         uri = URI(jwks_url)
-        
+
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = true
         http.open_timeout = 5
         http.read_timeout = 5
-        
+
         # In development, be more lenient with SSL verification
         # In production, this should use proper CA certificates
         if Rails.env.development?
@@ -64,7 +64,7 @@ class ClerkAuth
         else
           http.verify_mode = OpenSSL::SSL::VERIFY_PEER
         end
-        
+
         request = Net::HTTP::Get.new(uri.request_uri)
         response = http.request(request)
 
@@ -82,4 +82,3 @@ class ClerkAuth
     end
   end
 end
-

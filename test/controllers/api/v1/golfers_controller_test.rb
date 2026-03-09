@@ -16,7 +16,7 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "index returns golfers" do
     get api_v1_golfers_url, headers: auth_headers
     assert_response :success
-    
+
     json = JSON.parse(response.body)
     assert json.key?("golfers")
     assert json.key?("meta")
@@ -25,7 +25,7 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "index filters by payment_status" do
     get api_v1_golfers_url, params: { payment_status: "paid" }, headers: auth_headers
     assert_response :success
-    
+
     json = JSON.parse(response.body)
     json["golfers"].each do |golfer|
       assert_equal "paid", golfer["payment_status"]
@@ -35,7 +35,7 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "index filters by registration_status" do
     get api_v1_golfers_url, params: { registration_status: "waitlist" }, headers: auth_headers
     assert_response :success
-    
+
     json = JSON.parse(response.body)
     json["golfers"].each do |golfer|
       assert_equal "waitlist", golfer["registration_status"]
@@ -55,7 +55,7 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
     golfer = golfers(:confirmed_paid)
     get api_v1_golfer_url(golfer), headers: auth_headers
     assert_response :success
-    
+
     json = JSON.parse(response.body)
     assert_equal golfer.name, json["name"]
   end
@@ -71,10 +71,10 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
 
   test "create registers new golfer without authentication" do
     unique_email = "new-golfer-#{SecureRandom.hex(4)}@test.com"
-    
+
     # Ensure settings allow registration
     Setting.instance.update!(registration_open: true)
-    
+
     post api_v1_golfers_url, params: {
       golfer: {
         name: "New Golfer",
@@ -84,7 +84,7 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
       },
       waiver_accepted: true
     }
-    
+
     assert_response :created, "Expected 201 but got #{response.status}: #{response.body}"
   end
 
@@ -98,7 +98,7 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
       }
     }
     assert_response :unprocessable_entity
-    
+
     json = JSON.parse(response.body)
     assert json.key?("errors")
   end
@@ -112,7 +112,7 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
     patch api_v1_golfer_url(golfer), params: {
       golfer: { company: "Updated Company" }
     }, headers: auth_headers
-    
+
     assert_response :success
     golfer.reload
     assert_equal "Updated Company", golfer.company
@@ -121,11 +121,11 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "update can assign golfer to group" do
     golfer = golfers(:confirmed_unpaid)
     group = groups(:group_two)
-    
+
     patch api_v1_golfer_url(golfer), params: {
       golfer: { group_id: group.id, position: 3 }
     }, headers: auth_headers
-    
+
     assert_response :success
     golfer.reload
     assert_equal group.id, golfer.group_id
@@ -137,7 +137,7 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
 
   test "destroy removes golfer" do
     golfer = golfers(:waitlist_golfer)
-    
+
     assert_difference "Golfer.count", -1 do
       delete api_v1_golfer_url(golfer), headers: auth_headers
     end
@@ -151,10 +151,10 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "check_in toggles check-in status" do
     golfer = golfers(:confirmed_paid)
     assert_nil golfer.checked_in_at
-    
+
     post check_in_api_v1_golfer_url(golfer), headers: auth_headers
     assert_response :success
-    
+
     golfer.reload
     assert_not_nil golfer.checked_in_at
   end
@@ -162,17 +162,17 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "check_in unchecks already checked-in golfer" do
     golfer = golfers(:confirmed_checked_in)
     assert_not_nil golfer.checked_in_at
-    
+
     post check_in_api_v1_golfer_url(golfer), headers: auth_headers
     assert_response :success
-    
+
     golfer.reload
     assert_nil golfer.checked_in_at
   end
 
   test "check_in creates activity log" do
     golfer = golfers(:confirmed_paid)
-    
+
     assert_difference "ActivityLog.count", 1 do
       post check_in_api_v1_golfer_url(golfer), headers: auth_headers
     end
@@ -184,13 +184,13 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
 
   test "payment_details records payment" do
     golfer = golfers(:confirmed_unpaid)
-    
+
     post payment_details_api_v1_golfer_url(golfer), params: {
       payment_method: "cash",
       receipt_number: "R999",
       payment_notes: "Paid at registration"
     }, headers: auth_headers
-    
+
     assert_response :success
     golfer.reload
     assert_equal "paid", golfer.payment_status
@@ -205,17 +205,17 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "promote moves waitlist golfer to confirmed" do
     golfer = golfers(:waitlist_golfer)
     assert_equal "waitlist", golfer.registration_status
-    
+
     post promote_api_v1_golfer_url(golfer), headers: auth_headers
     assert_response :success
-    
+
     golfer.reload
     assert_equal "confirmed", golfer.registration_status
   end
 
   test "promote fails for non-waitlist golfer" do
     golfer = golfers(:confirmed_paid)
-    
+
     post promote_api_v1_golfer_url(golfer), headers: auth_headers
     assert_response :unprocessable_entity
   end
@@ -227,17 +227,17 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "demote moves confirmed golfer to waitlist" do
     golfer = golfers(:confirmed_unpaid)
     assert_equal "confirmed", golfer.registration_status
-    
+
     post demote_api_v1_golfer_url(golfer), headers: auth_headers
     assert_response :success
-    
+
     golfer.reload
     assert_equal "waitlist", golfer.registration_status
   end
 
   test "demote fails for waitlist golfer" do
     golfer = golfers(:waitlist_golfer)
-    
+
     post demote_api_v1_golfer_url(golfer), headers: auth_headers
     assert_response :unprocessable_entity
   end
@@ -249,11 +249,11 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "update_payment_status changes to unpaid" do
     golfer = golfers(:confirmed_paid)
     assert_equal "paid", golfer.payment_status
-    
+
     post update_payment_status_api_v1_golfer_url(golfer), params: {
       payment_status: "unpaid"
     }, headers: auth_headers
-    
+
     assert_response :success
     golfer.reload
     assert_equal "unpaid", golfer.payment_status
@@ -263,11 +263,11 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
 
   test "update_payment_status changes to paid" do
     golfer = golfers(:confirmed_unpaid)
-    
+
     post update_payment_status_api_v1_golfer_url(golfer), params: {
       payment_status: "paid"
     }, headers: auth_headers
-    
+
     assert_response :success
     golfer.reload
     assert_equal "paid", golfer.payment_status
@@ -275,11 +275,11 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
 
   test "update_payment_status rejects invalid status" do
     golfer = golfers(:confirmed_paid)
-    
+
     post update_payment_status_api_v1_golfer_url(golfer), params: {
       payment_status: "invalid"
     }, headers: auth_headers
-    
+
     assert_response :unprocessable_entity
   end
 
@@ -290,7 +290,7 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "registration_status returns capacity info without auth" do
     get registration_status_api_v1_golfers_url
     assert_response :success
-    
+
     json = JSON.parse(response.body)
     # Check that key fields are present
     assert json.key?("registration_open"), "Response should have registration_open"
@@ -306,7 +306,7 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "stats returns golfer statistics" do
     get stats_api_v1_golfers_url, headers: auth_headers
     assert_response :success
-    
+
     json = JSON.parse(response.body)
     assert json.key?("total")
     assert json.key?("confirmed")
@@ -322,10 +322,10 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "toggle_employee marks golfer as employee" do
     golfer = golfers(:confirmed_unpaid)
     assert_not golfer.is_employee
-    
+
     post toggle_employee_api_v1_golfer_url(golfer), headers: auth_headers
     assert_response :success
-    
+
     golfer.reload
     assert golfer.is_employee
   end
@@ -333,21 +333,21 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "toggle_employee removes employee status" do
     golfer = golfers(:confirmed_unpaid)
     golfer.update!(is_employee: true)
-    
+
     post toggle_employee_api_v1_golfer_url(golfer), headers: auth_headers
     assert_response :success
-    
+
     golfer.reload
     assert_not golfer.is_employee
   end
 
   test "toggle_employee creates activity log" do
     golfer = golfers(:confirmed_unpaid)
-    
+
     assert_difference "ActivityLog.count", 1 do
       post toggle_employee_api_v1_golfer_url(golfer), headers: auth_headers
     end
-    
+
     log = ActivityLog.last
     assert_equal "employee_status_changed", log.action
   end
@@ -359,13 +359,13 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "send_payment_link generates token and sends email" do
     golfer = golfers(:confirmed_unpaid)
     assert_nil golfer.payment_token
-    
+
     post send_payment_link_api_v1_golfer_url(golfer), headers: auth_headers
     assert_response :success
-    
+
     golfer.reload
     assert_not_nil golfer.payment_token
-    
+
     json = JSON.parse(response.body)
     assert json.key?("message")
     assert json.key?("payment_link")
@@ -373,18 +373,18 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
 
   test "send_payment_link fails for paid golfer" do
     golfer = golfers(:confirmed_paid)
-    
+
     post send_payment_link_api_v1_golfer_url(golfer), headers: auth_headers
     assert_response :unprocessable_entity
   end
 
   test "send_payment_link creates activity log" do
     golfer = golfers(:confirmed_unpaid)
-    
+
     assert_difference "ActivityLog.count", 1 do
       post send_payment_link_api_v1_golfer_url(golfer), headers: auth_headers
     end
-    
+
     log = ActivityLog.last
     assert_equal "payment_link_sent", log.action
   end
@@ -396,11 +396,11 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
   test "payment_details sets payment_amount_cents" do
     golfer = golfers(:confirmed_unpaid)
     tournament = golfer.tournament
-    
+
     post payment_details_api_v1_golfer_url(golfer), params: {
       payment_method: "cash"
     }, headers: auth_headers
-    
+
     assert_response :success
     golfer.reload
     assert_equal tournament.entry_fee, golfer.payment_amount_cents
@@ -410,14 +410,13 @@ class Api::V1::GolfersControllerTest < ActionDispatch::IntegrationTest
     golfer = golfers(:confirmed_unpaid)
     golfer.update!(is_employee: true)
     tournament = golfer.tournament
-    
+
     post payment_details_api_v1_golfer_url(golfer), params: {
       payment_method: "cash"
     }, headers: auth_headers
-    
+
     assert_response :success
     golfer.reload
     assert_equal tournament.employee_entry_fee, golfer.payment_amount_cents
   end
 end
-

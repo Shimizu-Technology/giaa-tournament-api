@@ -17,11 +17,11 @@ module Api
         if setting.update(setting_params)
           # Log the changes
           changes = setting_params.keys.select { |k| old_values[k.to_s] != setting.send(k) }
-          
+
           if changes.any?
             ActivityLog.log(
               admin: current_admin,
-              action: 'settings_updated',
+              action: "settings_updated",
               target: setting,
               details: "Updated global settings: #{changes.join(', ')}",
               metadata: {
@@ -30,7 +30,7 @@ module Api
               }
             )
           end
-          
+
           render json: setting, serializer: SettingSerializer
         else
           render json: { errors: setting.errors.full_messages }, status: :unprocessable_entity

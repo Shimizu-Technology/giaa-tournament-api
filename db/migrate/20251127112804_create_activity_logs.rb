@@ -14,7 +14,7 @@ class CreateActivityLogs < ActiveRecord::Migration[8.1]
 
     # Indexes for common queries
     add_index :activity_logs, :action
-    add_index :activity_logs, [:target_type, :target_id]
+    add_index :activity_logs, [ :target_type, :target_id ]
     add_index :activity_logs, :created_at
   end
 end

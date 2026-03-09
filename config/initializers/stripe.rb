@@ -4,4 +4,3 @@
 # because the key is stored in the database (Settings table)
 
 Stripe.api_version = "2024-11-20.acacia"
-

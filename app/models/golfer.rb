@@ -6,7 +6,7 @@ class Golfer < ApplicationRecord
 
   # Validations
   validates :name, presence: true
-  validates :email, presence: true, 
+  validates :email, presence: true,
                     uniqueness: { scope: :tournament_id, message: "has already registered for this tournament" },
                     format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :phone, presence: true
@@ -21,24 +21,24 @@ class Golfer < ApplicationRecord
   scope :confirmed, -> { where(registration_status: "confirmed") }
   scope :waitlist, -> { where(registration_status: "waitlist") }
   scope :cancelled, -> { where(registration_status: "cancelled") }
-  
+
   # Payment scopes
   scope :paid, -> { where(payment_status: "paid") }
   scope :unpaid, -> { where(payment_status: "unpaid") }
   scope :refunded, -> { where(payment_status: "refunded") }
-  
+
   # Check-in scopes
   scope :checked_in, -> { where.not(checked_in_at: nil) }
   scope :not_checked_in, -> { where(checked_in_at: nil) }
-  
+
   # Group scopes
   scope :unassigned, -> { where(group_id: nil) }
   scope :assigned, -> { where.not(group_id: nil) }
-  
+
   # Payment type scopes
   scope :pay_now, -> { where(payment_type: "stripe") }
   scope :pay_on_day, -> { where(payment_type: "pay_on_day") }
-  
+
   # Tournament scope
   scope :for_tournament, ->(tournament_id) { where(tournament_id: tournament_id) }
 
@@ -149,9 +149,9 @@ class Golfer < ApplicationRecord
     # Find this group's index among all groups at this hole
     group_ids = groups_at_hole.pluck(:id)
     position_index = group_ids.index(group.id)
-    
+
     # Always add letter suffix for consistency
-    position_letter = ('A'..'Z').to_a[position_index] || 'X'
+    position_letter = ("A".."Z").to_a[position_index] || "X"
     "#{group.hole_number}#{position_letter}"
   end
 
@@ -163,7 +163,7 @@ class Golfer < ApplicationRecord
   # Generate a unique payment token for payment links
   def generate_payment_token!
     return payment_token if payment_token.present?
-    
+
     loop do
       token = SecureRandom.urlsafe_base64(24)
       unless Golfer.exists?(payment_token: token)
@@ -190,7 +190,7 @@ class Golfer < ApplicationRecord
     return nil unless payment_status == "paid" || payment_status == "refunded"
 
     details = []
-    
+
     if payment_amount_cents.present?
       details << "Amount: $#{'%.2f' % (payment_amount_cents / 100.0)}"
     end
@@ -211,7 +211,7 @@ class Golfer < ApplicationRecord
     return nil unless refunded?
 
     details = []
-    
+
     if refund_amount_cents.present?
       details << "Refunded: $#{'%.2f' % (refund_amount_cents / 100.0)}"
     end
@@ -258,7 +258,7 @@ class Golfer < ApplicationRecord
 
   def set_default_payment_status
     return if payment_status.present?
-    
+
     # All new registrations start as unpaid
     # Stripe payments will be marked as paid after successful checkout
     # Pay on day payments will be marked as paid at check-in

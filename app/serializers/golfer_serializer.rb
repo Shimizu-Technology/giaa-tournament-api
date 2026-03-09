@@ -68,7 +68,7 @@ class GolferSerializer < ActiveModel::Serializer
   # Format the payment timestamp nicely
   def formatted_payment_timestamp
     return nil unless object.payment_notes.present?
-    
+
     # Try to extract and format the timestamp from payment_notes
     # If the payment was made via Stripe, format the timestamp from when it was recorded
     if object.payment_status == "paid" && object.payment_type == "stripe"
@@ -76,7 +76,7 @@ class GolferSerializer < ActiveModel::Serializer
       if match = object.payment_notes&.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/)
         begin
           time = Time.parse(match[1])
-          return time.in_time_zone('Pacific/Guam').strftime('%B %d, %Y at %I:%M %p')
+          return time.in_time_zone("Pacific/Guam").strftime("%B %d, %Y at %I:%M %p")
         rescue
           nil
         end
@@ -88,21 +88,21 @@ class GolferSerializer < ActiveModel::Serializer
   # Determine if payment was day-of or pre-paid
   # Returns: 'day_of', 'pre_paid', or nil if not paid
   def payment_timing
-    return nil unless object.payment_status == 'paid'
+    return nil unless object.payment_status == "paid"
     return nil unless object.paid_at.present?
-    
+
     tournament = object.tournament
     return nil unless tournament&.event_date.present?
-    
+
     # Parse the tournament event date (stored as string like "January 9, 2026")
     begin
       event_date = Date.parse(tournament.event_date)
       payment_date = object.paid_at.to_date
-      
+
       if payment_date >= event_date
-        'day_of'
+        "day_of"
       else
-        'pre_paid'
+        "pre_paid"
       end
     rescue ArgumentError
       nil
@@ -112,17 +112,17 @@ class GolferSerializer < ActiveModel::Serializer
   # Determine the payment channel
   # Returns: 'stripe_online', 'credit_venue', 'cash', 'check', or nil
   def payment_channel
-    return nil unless object.payment_status == 'paid'
-    
+    return nil unless object.payment_status == "paid"
+
     # If has Stripe payment intent, it was paid online via Stripe
     if object.stripe_payment_intent_id.present?
-      'stripe_online'
-    elsif object.payment_method == 'credit'
-      'credit_venue'
-    elsif object.payment_method == 'cash'
-      'cash'
-    elsif object.payment_method == 'check'
-      'check'
+      "stripe_online"
+    elsif object.payment_method == "credit"
+      "credit_venue"
+    elsif object.payment_method == "cash"
+      "cash"
+    elsif object.payment_method == "check"
+      "check"
     else
       nil
     end

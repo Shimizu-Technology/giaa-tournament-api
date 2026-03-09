@@ -8,10 +8,10 @@ class Api::V1::PaymentLinksControllerTest < ActionDispatch::IntegrationTest
   test "show returns golfer info for valid token" do
     golfer = golfers(:confirmed_unpaid)
     golfer.generate_payment_token!
-    
+
     get "/api/v1/payment_links/#{golfer.payment_token}"
     assert_response :success
-    
+
     json = JSON.parse(response.body)
     assert json.key?("golfer")
     assert json.key?("tournament")
@@ -27,10 +27,10 @@ class Api::V1::PaymentLinksControllerTest < ActionDispatch::IntegrationTest
   test "show returns 422 for already paid golfer" do
     golfer = golfers(:confirmed_paid)
     golfer.generate_payment_token!
-    
+
     get "/api/v1/payment_links/#{golfer.payment_token}"
     assert_response :unprocessable_entity
-    
+
     json = JSON.parse(response.body)
     assert json["already_paid"]
   end
@@ -40,10 +40,10 @@ class Api::V1::PaymentLinksControllerTest < ActionDispatch::IntegrationTest
     golfer.update!(is_employee: true)
     golfer.generate_payment_token!
     tournament = golfer.tournament
-    
+
     get "/api/v1/payment_links/#{golfer.payment_token}"
     assert_response :success
-    
+
     json = JSON.parse(response.body)
     assert_equal tournament.employee_entry_fee, json["entry_fee_cents"]
   end
@@ -60,9 +60,8 @@ class Api::V1::PaymentLinksControllerTest < ActionDispatch::IntegrationTest
   test "checkout returns error for already paid golfer" do
     golfer = golfers(:confirmed_paid)
     golfer.generate_payment_token!
-    
+
     post "/api/v1/payment_links/#{golfer.payment_token}/checkout"
     assert_response :unprocessable_entity
   end
 end
-

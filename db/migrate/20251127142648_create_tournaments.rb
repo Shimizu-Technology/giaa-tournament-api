@@ -25,7 +25,7 @@ class CreateTournaments < ActiveRecord::Migration[8.1]
     # Add indexes
     add_index :tournaments, :status
     add_index :tournaments, :year
-    add_index :tournaments, [:status, :year]
+    add_index :tournaments, [ :status, :year ]
 
     # Add tournament_id to related tables
     add_reference :golfers, :tournament, foreign_key: true, index: true
@@ -34,6 +34,6 @@ class CreateTournaments < ActiveRecord::Migration[8.1]
 
     # Change golfer email uniqueness to be scoped by tournament
     remove_index :golfers, :email if index_exists?(:golfers, :email)
-    add_index :golfers, [:tournament_id, :email], unique: true
+    add_index :golfers, [ :tournament_id, :email ], unique: true
   end
 end

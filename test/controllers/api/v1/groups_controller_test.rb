@@ -15,7 +15,7 @@ class Api::V1::GroupsControllerTest < ActionDispatch::IntegrationTest
   test "index returns all groups" do
     get api_v1_groups_url, headers: auth_headers
     assert_response :success
-    
+
     json = JSON.parse(response.body)
     assert_kind_of Array, json
     assert json.length > 0
@@ -34,7 +34,7 @@ class Api::V1::GroupsControllerTest < ActionDispatch::IntegrationTest
     group = groups(:group_one)
     get api_v1_group_url(group), headers: auth_headers
     assert_response :success
-    
+
     json = JSON.parse(response.body)
     assert_equal group.group_number, json["group_number"]
     assert json.key?("golfers")
@@ -52,14 +52,14 @@ class Api::V1::GroupsControllerTest < ActionDispatch::IntegrationTest
   test "create adds new group with auto-assigned number" do
     # Controller auto-assigns the next group number
     expected_number = Group.maximum(:group_number).to_i + 1
-    
+
     assert_difference "Group.count", 1 do
       post api_v1_groups_url, params: {
         hole_number: 10
       }, headers: auth_headers
     end
     assert_response :created
-    
+
     json = JSON.parse(response.body)
     assert_equal expected_number, json["group_number"]
     assert_equal 10, json["hole_number"]
@@ -67,10 +67,10 @@ class Api::V1::GroupsControllerTest < ActionDispatch::IntegrationTest
 
   test "create assigns sequential group numbers" do
     initial_max = Group.maximum(:group_number).to_i
-    
+
     post api_v1_groups_url, params: { hole_number: nil }, headers: auth_headers
     assert_response :created
-    
+
     json = JSON.parse(response.body)
     assert_equal initial_max + 1, json["group_number"]
   end
@@ -81,11 +81,11 @@ class Api::V1::GroupsControllerTest < ActionDispatch::IntegrationTest
 
   test "update modifies group" do
     group = groups(:group_three)
-    
+
     patch api_v1_group_url(group), params: {
       group: { hole_number: 15 }
     }, headers: auth_headers
-    
+
     assert_response :success
     group.reload
     assert_equal 15, group.hole_number
@@ -98,11 +98,10 @@ class Api::V1::GroupsControllerTest < ActionDispatch::IntegrationTest
   test "destroy removes group" do
     group = groups(:group_three)
     group.golfers.update_all(group_id: nil)
-    
+
     assert_difference "Group.count", -1 do
       delete api_v1_group_url(group), headers: auth_headers
     end
     assert_response :no_content
   end
 end
-

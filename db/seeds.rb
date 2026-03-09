@@ -58,7 +58,7 @@ if Rails.env.development?
     { name: "Charlie Brown", company: "Golf Pros", email: "charlie.brown@example.com", phone: "(555) 567-8901", payment_type: "stripe", payment_status: "paid" },
     { name: "Diana Martinez", company: "Airport Services", email: "diana.martinez@example.com", phone: "(555) 678-9012", payment_type: "pay_on_day", payment_status: "unpaid" },
     { name: "Edward Lee", company: "Pacific Airlines", email: "edward.lee@example.com", phone: "(555) 789-0123", payment_type: "stripe", payment_status: "paid" },
-    { name: "Fiona Garcia", company: "Island Tours", email: "fiona.garcia@example.com", phone: "(555) 890-1234", payment_type: "stripe", payment_status: "unpaid" },
+    { name: "Fiona Garcia", company: "Island Tours", email: "fiona.garcia@example.com", phone: "(555) 890-1234", payment_type: "stripe", payment_status: "unpaid" }
   ]
 
   sample_golfers.each do |attrs|

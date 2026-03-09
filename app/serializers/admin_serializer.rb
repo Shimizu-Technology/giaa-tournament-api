@@ -6,4 +6,3 @@ class AdminSerializer < ActiveModel::Serializer
     object.super_admin?
   end
 end
-

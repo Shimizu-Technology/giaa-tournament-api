@@ -9,14 +9,14 @@ module Api
       # Get payment info for a golfer by token
       def show
         golfer = Golfer.find_by(payment_token: params[:token])
-        
+
         unless golfer
           render json: { error: "Invalid or expired payment link" }, status: :not_found
           return
         end
 
         if golfer.payment_status == "paid"
-          render json: { 
+          render json: {
             error: "This payment has already been completed",
             already_paid: true,
             golfer: {
@@ -63,7 +63,7 @@ module Api
       # Create a Stripe checkout session for the golfer
       def create_checkout
         golfer = Golfer.find_by(payment_token: params[:token])
-        
+
         unless golfer
           render json: { error: "Invalid or expired payment link" }, status: :not_found
           return
@@ -81,7 +81,7 @@ module Api
 
         setting = Setting.instance
         tournament = golfer.tournament
-        
+
         # Handle test mode
         if setting.test_mode?
           return handle_test_mode(golfer, tournament)
@@ -100,18 +100,18 @@ module Api
         begin
           session = Stripe::Checkout::Session.create({
             ui_mode: "embedded",
-            payment_method_types: ["card"],
-            line_items: [{
+            payment_method_types: [ "card" ],
+            line_items: [ {
               price_data: {
                 currency: "usd",
                 product_data: {
                   name: "#{tournament.name} Entry Fee",
-                  description: "Golf Tournament Registration - #{golfer.name} (#{fee_description})",
+                  description: "Golf Tournament Registration - #{golfer.name} (#{fee_description})"
                 },
-                unit_amount: entry_fee,
+                unit_amount: entry_fee
               },
-              quantity: 1,
-            }],
+              quantity: 1
+            } ],
             mode: "payment",
             return_url: "#{frontend_url}/pay/#{params[:token]}/success?session_id={CHECKOUT_SESSION_ID}",
             customer_email: golfer.email,
@@ -148,7 +148,7 @@ module Api
         ActiveRecord::Base.transaction do
           # Lock the golfer row to prevent concurrent updates
           golfer.lock!
-          
+
           # Check if already paid AFTER acquiring lock
           if golfer.payment_status == "paid"
             # Already paid - just return success without sending emails again
@@ -175,7 +175,7 @@ module Api
           # Log the payment activity
           ActivityLog.log(
             admin: nil,
-            action: 'payment_completed',
+            action: "payment_completed",
             target: golfer,
             details: "Payment of $#{format('%.2f', entry_fee / 100.0)} completed via payment link#{golfer.is_employee ? ' (Employee Rate)' : ''}",
             tournament: tournament
@@ -207,4 +207,3 @@ module Api
     end
   end
 end
-

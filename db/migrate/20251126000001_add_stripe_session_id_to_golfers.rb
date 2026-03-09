@@ -5,4 +5,3 @@ class AddStripeSessionIdToGolfers < ActiveRecord::Migration[8.1]
     add_index :golfers, :stripe_checkout_session_id, unique: true, where: "stripe_checkout_session_id IS NOT NULL"
   end
 end
-

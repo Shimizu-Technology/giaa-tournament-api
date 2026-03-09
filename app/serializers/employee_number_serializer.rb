@@ -16,7 +16,6 @@ class EmployeeNumberSerializer < ActiveModel::Serializer
   end
 
   def created_at
-    object.created_at.in_time_zone('Guam').iso8601
+    object.created_at.in_time_zone("Guam").iso8601
   end
 end
-

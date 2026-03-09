@@ -4,7 +4,7 @@ class GolferTest < ActiveSupport::TestCase
   # ==================
   # Validations
   # ==================
-  
+
   test "should be valid with all required attributes" do
     golfer = Golfer.new(
       tournament: tournaments(:tournament_one),
@@ -58,7 +58,7 @@ class GolferTest < ActiveSupport::TestCase
   test "should allow same email in different tournaments" do
     existing = golfers(:confirmed_paid)
     other_tournament = tournaments(:tournament_archived)
-    
+
     golfer = Golfer.new(
       tournament: other_tournament,
       name: "Same Person",
@@ -161,10 +161,10 @@ class GolferTest < ActiveSupport::TestCase
   test "check_in! sets checked_in_at when not checked in" do
     golfer = golfers(:confirmed_paid)
     assert_nil golfer.checked_in_at
-    
+
     golfer.check_in!
     golfer.reload
-    
+
     assert_not_nil golfer.checked_in_at
     assert golfer.checked_in?
   end
@@ -172,10 +172,10 @@ class GolferTest < ActiveSupport::TestCase
   test "check_in! clears checked_in_at when already checked in (toggle)" do
     golfer = golfers(:confirmed_checked_in)
     assert_not_nil golfer.checked_in_at
-    
+
     golfer.check_in!
     golfer.reload
-    
+
     assert_nil golfer.checked_in_at
     assert_not golfer.checked_in?
   end
@@ -211,7 +211,7 @@ class GolferTest < ActiveSupport::TestCase
     tournament = tournaments(:tournament_one)
     # Ensure tournament has capacity
     tournament.update!(max_capacity: 100)
-    
+
     golfer = Golfer.create!(
       tournament: tournament,
       name: "New Golfer",
@@ -252,10 +252,10 @@ class GolferTest < ActiveSupport::TestCase
   test "generate_payment_token! creates unique token" do
     golfer = golfers(:confirmed_unpaid)
     assert_nil golfer.payment_token
-    
+
     token = golfer.generate_payment_token!
     golfer.reload
-    
+
     assert_not_nil token
     assert_equal token, golfer.payment_token
     assert token.length > 20
@@ -265,14 +265,14 @@ class GolferTest < ActiveSupport::TestCase
     golfer = golfers(:confirmed_unpaid)
     first_token = golfer.generate_payment_token!
     second_token = golfer.generate_payment_token!
-    
+
     assert_equal first_token, second_token
   end
 
   test "payment_link_url returns full URL with token" do
     golfer = golfers(:confirmed_unpaid)
     golfer.generate_payment_token!
-    
+
     url = golfer.payment_link_url
     assert_not_nil url
     assert_includes url, golfer.payment_token

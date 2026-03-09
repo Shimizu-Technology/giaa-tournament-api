@@ -4,4 +4,3 @@ class AddStripeWebhookSecretToSettings < ActiveRecord::Migration[8.1]
     add_column :settings, :tournament_entry_fee, :integer, default: 12500 # $125.00 in cents
   end
 end
-

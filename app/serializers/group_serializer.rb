@@ -26,10 +26,9 @@ class GroupSerializer < ActiveModel::Serializer
     # Find this group's index among all groups at this hole
     group_ids = groups_at_hole.pluck(:id)
     position_index = group_ids.index(object.id)
-    
+
     # Always add letter suffix for consistency
-    position_letter = ('A'..'Z').to_a[position_index] || 'X'
+    position_letter = ("A".."Z").to_a[position_index] || "X"
     "#{object.hole_number}#{position_letter}"
   end
 end
-
