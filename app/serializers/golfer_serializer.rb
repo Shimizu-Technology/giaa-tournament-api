@@ -33,10 +33,20 @@ class GolferSerializer < ActiveModel::Serializer
   end
 
   def group_position_label
-    object.group_position_label
+    return nil unless object.group && object.position
+    pos = object.position.to_i
+    return nil unless pos >= 1
+    letter = ("a".."d").to_a[pos - 1] || "x"
+    "#{object.group.group_number}#{letter.upcase}"
   end
 
   def hole_position_label
+    return nil unless object.group
+    # Use precomputed label from group if available (set by controller)
+    if object.group.instance_variable_defined?(:@precomputed_hole_label)
+      return object.group.instance_variable_get(:@precomputed_hole_label)
+    end
+    # Fallback to model method (may trigger query)
     object.hole_position_label
   end
 

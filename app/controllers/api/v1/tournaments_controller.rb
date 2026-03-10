@@ -6,10 +6,13 @@ module Api
       # GET /api/v1/tournaments
       # List all tournaments (for admin dropdown)
       def index
-        tournaments = Tournament.recent
+        tournaments = Tournament.recent.includes(:employee_numbers)
 
         # Filter by status if provided
         tournaments = tournaments.where(status: params[:status]) if params[:status].present?
+
+        # Precompute golfer counts in bulk (avoids N+1 count queries per tournament)
+        precompute_tournament_counts(tournaments)
 
         render json: tournaments, each_serializer: TournamentSerializer
       end
@@ -20,6 +23,9 @@ module Api
         tournament = Tournament.current
 
         if tournament
+          # Re-load with employee_numbers eager-loaded to avoid extra COUNT query in serializer
+          tournament = Tournament.includes(:employee_numbers).find(tournament.id)
+          precompute_tournament_counts([ tournament ])
           render json: tournament, serializer: TournamentSerializer
         else
           render json: { error: "No active tournament found" }, status: :not_found
@@ -28,7 +34,8 @@ module Api
 
       # GET /api/v1/tournaments/:id
       def show
-        tournament = Tournament.find(params[:id])
+        tournament = Tournament.includes(:employee_numbers).find(params[:id])
+        precompute_tournament_counts([ tournament ])
         render json: tournament, serializer: TournamentSerializer
       end
 
@@ -154,6 +161,42 @@ module Api
       end
 
       private
+
+      # Precompute golfer counts for all tournaments in a single query batch
+      # This avoids 5 separate COUNT queries per tournament in the serializer
+      def precompute_tournament_counts(tournaments)
+        tournament_ids = tournaments.map(&:id)
+        return if tournament_ids.empty?
+
+        # Single query: get all relevant counts grouped by tournament_id
+        # Uses sanitize_sql_array to safely bind tournament_ids (avoids Brakeman SQL injection warning)
+        sql = ActiveRecord::Base.sanitize_sql_array([
+          <<~SQL,
+            SELECT
+              tournament_id,
+              COUNT(*) FILTER (WHERE registration_status = 'confirmed') AS confirmed_count,
+              COUNT(*) FILTER (WHERE registration_status = 'waitlist') AS waitlist_count,
+              COUNT(*) FILTER (WHERE payment_status = 'paid') AS paid_count,
+              COUNT(*) FILTER (WHERE checked_in_at IS NOT NULL) AS checked_in_count
+            FROM golfers
+            WHERE tournament_id IN (?)
+            GROUP BY tournament_id
+          SQL
+          tournament_ids
+        ])
+        rows = ActiveRecord::Base.connection.execute(sql)
+        counts_by_tournament = rows.index_by { |r| r["tournament_id"].to_i }
+
+        tournaments.each do |tournament|
+          counts = counts_by_tournament[tournament.id]
+          tournament.instance_variable_set(:@precomputed_counts, {
+            confirmed: (counts&.dig("confirmed_count") || 0).to_i,
+            waitlist: (counts&.dig("waitlist_count") || 0).to_i,
+            paid: (counts&.dig("paid_count") || 0).to_i,
+            checked_in: (counts&.dig("checked_in_count") || 0).to_i
+          })
+        end
+      end
 
       def tournament_params
         params.require(:tournament).permit(

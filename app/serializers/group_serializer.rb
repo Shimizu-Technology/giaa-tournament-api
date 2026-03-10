@@ -5,30 +5,23 @@ class GroupSerializer < ActiveModel::Serializer
   has_many :golfers
 
   def golfer_count
-    object.golfers.count
+    # Use .size instead of .count to leverage eager-loaded associations
+    object.golfers.size
   end
 
   def is_full
-    object.full?
+    # Intentionally inlined from Group#full? to use .size (eager-loaded) instead of .count (SQL).
+    # Uses the same >= MAX_GOLFERS comparison as the model method.
+    object.golfers.size >= Group::MAX_GOLFERS
   end
 
   # Hole-based label for the group (e.g., "7A" for first foursome at Hole 7)
-  # Always includes a letter suffix for consistency (even if only one foursome at that hole)
+  # Uses precomputed label if available (set by controller), otherwise falls back to in-memory calculation
   def hole_position_label
+    return object.instance_variable_get(:@precomputed_hole_label) if object.instance_variable_defined?(:@precomputed_hole_label)
     return "Unassigned" unless object.hole_number
 
-    # Get all groups at this hole, sorted by group_number for consistent ordering
-    groups_at_hole = Group.where(
-      tournament_id: object.tournament_id,
-      hole_number: object.hole_number
-    ).order(:group_number)
-
-    # Find this group's index among all groups at this hole
-    group_ids = groups_at_hole.pluck(:id)
-    position_index = group_ids.index(object.id)
-
-    # Always add letter suffix for consistency
-    position_letter = ("A".."Z").to_a[position_index] || "X"
-    "#{object.hole_number}#{position_letter}"
+    # Fallback: compute from model method (may trigger query if not precomputed)
+    object.hole_position_label
   end
 end

@@ -8,7 +8,7 @@ module Api
         tournament = find_tournament
         return render_tournament_required unless tournament
 
-        golfers = tournament.golfers.includes(:group)
+        golfers = tournament.golfers.includes(:group, :tournament, :refunded_by)
 
         # Apply filters
         golfers = golfers.where(payment_status: params[:payment_status]) if params[:payment_status].present?
@@ -46,6 +46,9 @@ module Api
 
         # Paginate
         golfers = paginate(golfers)
+
+        # Precompute hole position labels for all groups in this result set (avoids N+1)
+        precompute_hole_labels_for_golfers(golfers, tournament.id)
 
         render json: {
           golfers: ActiveModelSerializers::SerializableResource.new(golfers),
@@ -937,6 +940,41 @@ module Api
           :group_id, :hole_number, :position, :notes,
           :payment_method, :receipt_number, :payment_notes
         )
+      end
+
+      # Precompute hole position labels for groups associated with a golfer collection
+      # This avoids the N+1 query in GolferSerializer#hole_position_label
+      # Loads ALL groups for the tournament (not just those on the current page)
+      # to ensure consistent labels across pages/filters
+      def precompute_hole_labels_for_golfers(golfers, tournament_id = nil)
+        tournament_id ||= golfers.first&.tournament_id
+        return unless tournament_id
+
+        # Load ALL groups for the tournament to ensure consistent hole labels
+        all_groups = Group.where(tournament_id: tournament_id).order(:group_number).to_a
+        return if all_groups.empty?
+
+        # Build a lookup of precomputed labels by group id
+        label_lookup = {}
+        groups_by_hole = all_groups.group_by(&:hole_number)
+        groups_by_hole.each do |hole_number, hole_groups|
+          hole_groups.each_with_index do |group, index|
+            label = if hole_number.nil?
+              "Unassigned"
+            else
+              letter = ("A".."Z").to_a[index] || "X"
+              "#{hole_number}#{letter}"
+            end
+            label_lookup[group.id] = label
+          end
+        end
+
+        # Apply labels to the eager-loaded groups on the current page's golfers
+        golfers.each do |golfer|
+          next unless golfer.group
+          label = label_lookup[golfer.group.id]
+          golfer.group.instance_variable_set(:@precomputed_hole_label, label) if label
+        end
       end
 
       def broadcast_golfer_update(golfer, action: "updated")
