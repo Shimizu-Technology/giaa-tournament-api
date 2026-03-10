@@ -10,6 +10,8 @@ class GroupSerializer < ActiveModel::Serializer
   end
 
   def is_full
+    # Intentionally inlined from Group#full? to use .size (eager-loaded) instead of .count (SQL).
+    # Uses the same >= MAX_GOLFERS comparison as the model method.
     object.golfers.size >= Group::MAX_GOLFERS
   end
 

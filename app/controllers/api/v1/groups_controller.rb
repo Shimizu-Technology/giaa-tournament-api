@@ -287,7 +287,7 @@ module Api
         groups_by_hole = groups.group_by(&:hole_number)
 
         groups_by_hole.each do |hole_number, hole_groups|
-          sorted = hole_groups.sort_by(&:group_number)
+          sorted = hole_groups.sort_by { |g| g.group_number || Float::INFINITY }
           sorted.each_with_index do |group, index|
             label = if hole_number.nil?
               "Unassigned"
