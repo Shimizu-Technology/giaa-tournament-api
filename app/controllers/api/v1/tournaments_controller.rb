@@ -23,6 +23,8 @@ module Api
         tournament = Tournament.current
 
         if tournament
+          # Re-load with employee_numbers eager-loaded to avoid extra COUNT query in serializer
+          tournament = Tournament.includes(:employee_numbers).find(tournament.id)
           precompute_tournament_counts([ tournament ])
           render json: tournament, serializer: TournamentSerializer
         else
@@ -32,7 +34,7 @@ module Api
 
       # GET /api/v1/tournaments/:id
       def show
-        tournament = Tournament.find(params[:id])
+        tournament = Tournament.includes(:employee_numbers).find(params[:id])
         precompute_tournament_counts([ tournament ])
         render json: tournament, serializer: TournamentSerializer
       end
@@ -167,18 +169,22 @@ module Api
         return if tournament_ids.empty?
 
         # Single query: get all relevant counts grouped by tournament_id
-        # Use raw SQL to avoid any default scope / ORDER BY interference
-        rows = ActiveRecord::Base.connection.execute(<<~SQL)
-          SELECT
-            tournament_id,
-            COUNT(*) FILTER (WHERE registration_status = 'confirmed') AS confirmed_count,
-            COUNT(*) FILTER (WHERE registration_status = 'waitlist') AS waitlist_count,
-            COUNT(*) FILTER (WHERE payment_status = 'paid' AND registration_status != 'cancelled') AS paid_count,
-            COUNT(*) FILTER (WHERE checked_in_at IS NOT NULL AND registration_status != 'cancelled') AS checked_in_count
-          FROM golfers
-          WHERE tournament_id IN (#{tournament_ids.map { |id| ActiveRecord::Base.connection.quote(id) }.join(',')})
-          GROUP BY tournament_id
-        SQL
+        # Uses sanitize_sql_array to safely bind tournament_ids (avoids Brakeman SQL injection warning)
+        sql = ActiveRecord::Base.sanitize_sql_array([
+          <<~SQL,
+            SELECT
+              tournament_id,
+              COUNT(*) FILTER (WHERE registration_status = 'confirmed') AS confirmed_count,
+              COUNT(*) FILTER (WHERE registration_status = 'waitlist') AS waitlist_count,
+              COUNT(*) FILTER (WHERE payment_status = 'paid' AND registration_status != 'cancelled') AS paid_count,
+              COUNT(*) FILTER (WHERE checked_in_at IS NOT NULL AND registration_status != 'cancelled') AS checked_in_count
+            FROM golfers
+            WHERE tournament_id IN (?)
+            GROUP BY tournament_id
+          SQL
+          tournament_ids
+        ])
+        rows = ActiveRecord::Base.connection.execute(sql)
         counts_by_tournament = rows.index_by { |r| r["tournament_id"] }
 
         tournaments.each do |tournament|

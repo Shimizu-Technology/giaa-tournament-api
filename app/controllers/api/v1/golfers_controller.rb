@@ -944,24 +944,36 @@ module Api
 
       # Precompute hole position labels for groups associated with a golfer collection
       # This avoids the N+1 query in GolferSerializer#hole_position_label
+      # Loads ALL groups for the tournament (not just those on the current page)
+      # to ensure consistent labels across pages/filters
       def precompute_hole_labels_for_golfers(golfers)
-        # Collect all unique groups from the eager-loaded golfers
-        groups = golfers.map(&:group).compact.uniq
-        return if groups.empty?
+        tournament_id = golfers.first&.tournament_id
+        return unless tournament_id
 
-        # Group by hole_number, then assign position letters
-        groups_by_hole = groups.group_by(&:hole_number)
+        # Load ALL groups for the tournament to ensure consistent hole labels
+        all_groups = Group.where(tournament_id: tournament_id).order(:group_number).to_a
+        return if all_groups.empty?
+
+        # Build a lookup of precomputed labels by group id
+        label_lookup = {}
+        groups_by_hole = all_groups.group_by(&:hole_number)
         groups_by_hole.each do |hole_number, hole_groups|
-          sorted = hole_groups.sort_by(&:group_number)
-          sorted.each_with_index do |group, index|
+          hole_groups.each_with_index do |group, index|
             label = if hole_number.nil?
               "Unassigned"
             else
               letter = ("A".."Z").to_a[index] || "X"
               "#{hole_number}#{letter}"
             end
-            group.instance_variable_set(:@precomputed_hole_label, label)
+            label_lookup[group.id] = label
           end
+        end
+
+        # Apply labels to the eager-loaded groups on the current page's golfers
+        golfers.each do |golfer|
+          next unless golfer.group
+          label = label_lookup[golfer.group.id]
+          golfer.group.instance_variable_set(:@precomputed_hole_label, label) if label
         end
       end
 
