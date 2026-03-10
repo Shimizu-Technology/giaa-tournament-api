@@ -59,8 +59,9 @@ class TournamentSerializer < ActiveModel::Serializer
   end
 
   def public_capacity_remaining
-    return public_capacity if public_capacity.nil?
-    remaining = public_capacity - confirmed_count
+    cap = public_capacity
+    return cap if cap.nil?
+    remaining = cap - confirmed_count
     remaining.negative? ? 0 : remaining
   end
 

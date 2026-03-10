@@ -34,7 +34,9 @@ class GolferSerializer < ActiveModel::Serializer
 
   def group_position_label
     return nil unless object.group && object.position
-    letter = ("a".."d").to_a[object.position.to_i - 1] || "x"
+    pos = object.position.to_i
+    return nil unless pos >= 1
+    letter = ("a".."d").to_a[pos - 1] || "x"
     "#{object.group.group_number}#{letter.upcase}"
   end
 
