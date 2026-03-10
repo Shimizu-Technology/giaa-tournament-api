@@ -8,7 +8,7 @@ module Api
         tournament = find_tournament
         return render_tournament_required unless tournament
 
-        golfers = tournament.golfers.includes(:group)
+        golfers = tournament.golfers.includes(:group, :tournament, :refunded_by)
 
         # Apply filters
         golfers = golfers.where(payment_status: params[:payment_status]) if params[:payment_status].present?
@@ -46,6 +46,9 @@ module Api
 
         # Paginate
         golfers = paginate(golfers)
+
+        # Precompute hole position labels for all groups in this result set (avoids N+1)
+        precompute_hole_labels_for_golfers(golfers)
 
         render json: {
           golfers: ActiveModelSerializers::SerializableResource.new(golfers),
@@ -937,6 +940,29 @@ module Api
           :group_id, :hole_number, :position, :notes,
           :payment_method, :receipt_number, :payment_notes
         )
+      end
+
+      # Precompute hole position labels for groups associated with a golfer collection
+      # This avoids the N+1 query in GolferSerializer#hole_position_label
+      def precompute_hole_labels_for_golfers(golfers)
+        # Collect all unique groups from the eager-loaded golfers
+        groups = golfers.map(&:group).compact.uniq
+        return if groups.empty?
+
+        # Group by hole_number, then assign position letters
+        groups_by_hole = groups.group_by(&:hole_number)
+        groups_by_hole.each do |hole_number, hole_groups|
+          sorted = hole_groups.sort_by(&:group_number)
+          sorted.each_with_index do |group, index|
+            label = if hole_number.nil?
+              "Unassigned"
+            else
+              letter = ("A".."Z").to_a[index] || "X"
+              "#{hole_number}#{letter}"
+            end
+            group.instance_variable_set(:@precomputed_hole_label, label)
+          end
+        end
       end
 
       def broadcast_golfer_update(golfer, action: "updated")

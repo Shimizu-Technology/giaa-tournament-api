@@ -25,47 +25,66 @@ class TournamentSerializer < ActiveModel::Serializer
   end
 
   def employee_numbers_count
-    object.employee_numbers.count
+    object.employee_numbers.size
   end
 
   def can_register
     object.can_register?
   end
 
+  # Use precomputed counts if available (set by controller), otherwise fall back to queries
   def confirmed_count
-    object.confirmed_count
+    precomputed_counts[:confirmed] || object.confirmed_count
   end
 
   def waitlist_count
-    object.waitlist_count
+    precomputed_counts[:waitlist] || object.waitlist_count
   end
 
   def capacity_remaining
-    object.capacity_remaining
+    return object.max_capacity if object.max_capacity.nil?
+    remaining = object.max_capacity - confirmed_count
+    remaining.negative? ? 0 : remaining
   end
 
   def at_capacity
-    object.at_capacity?
+    return false if object.max_capacity.nil?
+    confirmed_count >= object.max_capacity
   end
 
   def public_capacity
-    object.public_capacity
+    return object.max_capacity if object.max_capacity.nil?
+    public_cap = object.max_capacity - (object.reserved_slots || 0)
+    public_cap.negative? ? 0 : public_cap
   end
 
   def public_capacity_remaining
-    object.public_capacity_remaining
+    return public_capacity if public_capacity.nil?
+    remaining = public_capacity - confirmed_count
+    remaining.negative? ? 0 : remaining
   end
 
   def public_at_capacity
-    object.public_at_capacity?
+    return false if object.max_capacity.nil?
+    confirmed_count >= public_capacity
   end
 
   def checked_in_count
-    object.checked_in_count
+    precomputed_counts[:checked_in] || object.checked_in_count
   end
 
   def paid_count
-    object.paid_count
+    precomputed_counts[:paid] || object.paid_count
+  end
+
+  private
+
+  def precomputed_counts
+    @precomputed_counts ||= if object.instance_variable_defined?(:@precomputed_counts)
+      object.instance_variable_get(:@precomputed_counts)
+    else
+      {}
+    end
   end
 
   def display_name

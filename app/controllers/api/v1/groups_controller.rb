@@ -7,6 +7,7 @@ module Api
         return render_tournament_required unless tournament
 
         groups = tournament.groups.with_golfers
+        precompute_hole_labels(groups)
 
         render json: groups, each_serializer: GroupSerializer, include: "golfers"
       end
@@ -279,10 +280,31 @@ module Api
         params.require(:group).permit(:group_number, :hole_number)
       end
 
+      # Precompute hole position labels for all groups in one pass (avoids N+1 queries)
+      # Groups at the same hole get suffixes A, B, C... based on group_number order
+      def precompute_hole_labels(groups)
+        # Group by hole_number, then assign position letters
+        groups_by_hole = groups.group_by(&:hole_number)
+
+        groups_by_hole.each do |hole_number, hole_groups|
+          sorted = hole_groups.sort_by(&:group_number)
+          sorted.each_with_index do |group, index|
+            label = if hole_number.nil?
+              "Unassigned"
+            else
+              letter = ("A".."Z").to_a[index] || "X"
+              "#{hole_number}#{letter}"
+            end
+            group.instance_variable_set(:@precomputed_hole_label, label)
+          end
+        end
+      end
+
       def broadcast_groups_update(tournament)
         return unless tournament
 
         groups = tournament.groups.with_golfers
+        precompute_hole_labels(groups)
         ActionCable.server.broadcast("groups_channel", {
           action: "updated",
           tournament_id: tournament.id,
