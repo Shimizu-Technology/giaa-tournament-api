@@ -185,7 +185,7 @@ module Api
           tournament_ids
         ])
         rows = ActiveRecord::Base.connection.execute(sql)
-        counts_by_tournament = rows.index_by { |r| r["tournament_id"] }
+        counts_by_tournament = rows.index_by { |r| r["tournament_id"].to_i }
 
         tournaments.each do |tournament|
           counts = counts_by_tournament[tournament.id]
