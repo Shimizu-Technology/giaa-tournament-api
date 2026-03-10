@@ -48,7 +48,7 @@ module Api
         golfers = paginate(golfers)
 
         # Precompute hole position labels for all groups in this result set (avoids N+1)
-        precompute_hole_labels_for_golfers(golfers)
+        precompute_hole_labels_for_golfers(golfers, tournament.id)
 
         render json: {
           golfers: ActiveModelSerializers::SerializableResource.new(golfers),
@@ -946,8 +946,8 @@ module Api
       # This avoids the N+1 query in GolferSerializer#hole_position_label
       # Loads ALL groups for the tournament (not just those on the current page)
       # to ensure consistent labels across pages/filters
-      def precompute_hole_labels_for_golfers(golfers)
-        tournament_id = golfers.first&.tournament_id
+      def precompute_hole_labels_for_golfers(golfers, tournament_id = nil)
+        tournament_id ||= golfers.first&.tournament_id
         return unless tournament_id
 
         # Load ALL groups for the tournament to ensure consistent hole labels

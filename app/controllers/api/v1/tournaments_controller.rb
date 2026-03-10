@@ -176,8 +176,8 @@ module Api
               tournament_id,
               COUNT(*) FILTER (WHERE registration_status = 'confirmed') AS confirmed_count,
               COUNT(*) FILTER (WHERE registration_status = 'waitlist') AS waitlist_count,
-              COUNT(*) FILTER (WHERE payment_status = 'paid' AND registration_status != 'cancelled') AS paid_count,
-              COUNT(*) FILTER (WHERE checked_in_at IS NOT NULL AND registration_status != 'cancelled') AS checked_in_count
+              COUNT(*) FILTER (WHERE payment_status = 'paid') AS paid_count,
+              COUNT(*) FILTER (WHERE checked_in_at IS NOT NULL) AS checked_in_count
             FROM golfers
             WHERE tournament_id IN (?)
             GROUP BY tournament_id
